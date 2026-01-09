@@ -1,0 +1,23 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(pnpm dev:*)",
+      "Bash(timeout /t 5)",
+      "Bash(npm run dev:*)",
+      "Bash(npm install:*)",
+      "Bash(curl:*)",
+      "Bash(netstat:*)",
+      "Bash(findstr:*)",
+      "Bash(tasklist:*)",
+      "Bash(taskkill:*)",
+      "Bash(npx next lint)",
+      "Bash(npx tsc:*)",
+      "Bash(node --eval:*)",
+      "Bash(pkill:*)",
+      "Bash(npx next dev --port 3001 --no-turbopack)",
+      "Bash(node test-supabase.js:*)",
+      "Bash(git init:*)",
+      "Bash(git add:*)"
+    ]
+  }
+}
