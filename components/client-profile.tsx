@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { ExternalLink, Plus, Check, User, Trash2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -48,6 +48,14 @@ export function ClientProfile({ client, onUpdate, onDelete, teamMembers, availab
   const [showAddContact, setShowAddContact] = useState(false)
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
   const [logoFile, setLogoFile] = useState<File | null>(null)
+
+  // Sync local state when client changes
+  useEffect(() => {
+    setNextAction(client.nextAction || "")
+    setNextActionDate(client.nextActionDate || "")
+    setNotes(client.notes || "")
+    setAssignedTo(client.assignedTo || "")
+  }, [client.id, client.nextAction, client.nextActionDate, client.notes, client.assignedTo])
 
   const toggleProduct = (product: Product) => {
     const products = client.products.includes(product)
