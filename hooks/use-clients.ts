@@ -66,7 +66,8 @@ export function useClients() {
   // Add client
   const addClient = async (client: Client) => {
     try {
-      const { error } = await supabase.from("clients").insert([{
+      console.log('Attempting to insert client into database:', client)
+      const { data, error } = await supabase.from("clients").insert([{
         id: client.id,
         name: client.name,
         logo_url: client.logoUrl,
@@ -84,7 +85,17 @@ export function useClients() {
         activity: client.activity as any,
       }])
 
-      if (error) throw error
+      if (error) {
+        console.error("Supabase error details:", {
+          message: error.message,
+          details: error.details,
+          hint: error.hint,
+          code: error.code,
+        })
+        throw error
+      }
+
+      console.log('Client inserted successfully, data:', data)
       await fetchClients()
     } catch (err) {
       console.error("Error adding client:", err)

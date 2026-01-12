@@ -7,6 +7,13 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import type { Client, ClientCategory, ClientStatus, Product } from "@/lib/types"
 import { cn } from "@/lib/utils"
 
@@ -15,9 +22,10 @@ interface AddClientModalProps {
   onOpenChange: (open: boolean) => void
   onAddClient: (client: Client) => void
   availableProducts: Product[]
+  teamMembers: string[]
 }
 
-export function AddClientModal({ open, onOpenChange, onAddClient, availableProducts }: AddClientModalProps) {
+export function AddClientModal({ open, onOpenChange, onAddClient, availableProducts, teamMembers }: AddClientModalProps) {
   const [formData, setFormData] = useState({
     name: "",
     category: "Media" as ClientCategory,
@@ -31,6 +39,7 @@ export function AddClientModal({ open, onOpenChange, onAddClient, availableProdu
     contactEmail: "",
     contactRole: "",
     logoUrl: "",
+    assignedTo: "",
   })
   const [isSubmitting, setIsSubmitting] = useState(false)
 
@@ -84,6 +93,7 @@ export function AddClientModal({ open, onOpenChange, onAddClient, availableProdu
         nextActionDate: formData.nextActionDate || undefined,
         notes: formData.notes || undefined,
         logoUrl: formData.logoUrl || undefined,
+        assignedTo: formData.assignedTo || undefined,
         contacts:
           formData.contactName && formData.contactEmail
             ? [
@@ -123,6 +133,7 @@ export function AddClientModal({ open, onOpenChange, onAddClient, availableProdu
         contactEmail: "",
         contactRole: "",
         logoUrl: "",
+        assignedTo: "",
       })
 
       // Close modal
@@ -283,6 +294,25 @@ export function AddClientModal({ open, onOpenChange, onAddClient, availableProdu
               placeholder="Add notes about this client..."
               className="min-h-24 resize-none"
             />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="assignedTo">Responsible Person (optional)</Label>
+            <Select
+              value={formData.assignedTo || ""}
+              onValueChange={(value) => setFormData({ ...formData, assignedTo: value })}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Select responsible person" />
+              </SelectTrigger>
+              <SelectContent>
+                {teamMembers.map((member) => (
+                  <SelectItem key={member} value={member}>
+                    {member}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
           <div className="space-y-2">

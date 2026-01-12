@@ -125,6 +125,7 @@ export default function ClientDashboard() {
         onOpenChange={setIsAddClientOpen}
         onAddClient={handleAddClient}
         availableProducts={products}
+        teamMembers={teamMembers}
       />
       <ProductManagerModal
         open={isProductManagerOpen}
