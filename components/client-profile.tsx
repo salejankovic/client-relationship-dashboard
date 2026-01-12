@@ -26,8 +26,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { cn } from "@/lib/utils"
-import type { Client, Product } from "@/lib/types"
-import { PRODUCT_COLORS } from "@/lib/constants"
+import type { Client, Product, ProductConfig } from "@/lib/types"
 
 interface ClientProfileProps {
   client: Client
@@ -35,9 +34,10 @@ interface ClientProfileProps {
   onDelete: (clientId: string) => void
   teamMembers: string[]
   availableProducts: Product[]
+  productConfigs: ProductConfig[]
 }
 
-export function ClientProfile({ client, onUpdate, onDelete, teamMembers, availableProducts }: ClientProfileProps) {
+export function ClientProfile({ client, onUpdate, onDelete, teamMembers, availableProducts, productConfigs }: ClientProfileProps) {
   const [nextAction, setNextAction] = useState(client.nextAction || "")
   const [nextActionDate, setNextActionDate] = useState(client.nextActionDate || "")
   const [notes, setNotes] = useState(client.notes || "")
@@ -130,6 +130,12 @@ export function ClientProfile({ client, onUpdate, onDelete, teamMembers, availab
   }
 
   const availableUpsellProducts = availableProducts.filter((p) => !client.products.includes(p))
+
+  const getProductColor = (product: Product) => {
+    const config = productConfigs.find((c) => c.name === product)
+    if (!config) return { bgColor: "#3b82f6", textColor: "#ffffff" }
+    return { bgColor: config.bgColor, textColor: config.textColor }
+  }
 
   const handleDelete = () => {
     onDelete(client.id)
@@ -233,20 +239,28 @@ export function ClientProfile({ client, onUpdate, onDelete, teamMembers, availab
             </CardHeader>
             <CardContent>
               <div className="flex flex-wrap gap-2">
-                {availableProducts.map((product) => (
-                  <button
-                    key={product}
-                    onClick={() => toggleProduct(product)}
-                    className={cn(
-                      "px-2.5 py-1 rounded-md text-xs font-medium transition-all",
-                      client.products.includes(product)
-                        ? PRODUCT_COLORS[product]
-                        : "bg-secondary text-secondary-foreground hover:bg-secondary/80",
-                    )}
-                  >
-                    {product}
-                  </button>
-                ))}
+                {availableProducts.map((product) => {
+                  const colors = getProductColor(product)
+                  return (
+                    <button
+                      key={product}
+                      onClick={() => toggleProduct(product)}
+                      style={
+                        client.products.includes(product)
+                          ? { backgroundColor: colors.bgColor, color: colors.textColor }
+                          : undefined
+                      }
+                      className={cn(
+                        "px-2.5 py-1 rounded-md text-xs font-medium transition-all",
+                        client.products.includes(product)
+                          ? ""
+                          : "bg-secondary text-secondary-foreground hover:bg-secondary/80",
+                      )}
+                    >
+                      {product}
+                    </button>
+                  )
+                })}
               </div>
             </CardContent>
           </Card>
@@ -395,20 +409,28 @@ export function ClientProfile({ client, onUpdate, onDelete, teamMembers, availab
           </p>
           {availableUpsellProducts.length > 0 ? (
             <div className="flex flex-wrap gap-2">
-              {availableUpsellProducts.map((product) => (
-                <button
-                  key={product}
-                  onClick={() => toggleUpsellProduct(product)}
-                  className={cn(
-                    "px-2.5 py-1 rounded-md text-xs font-medium transition-all",
-                    (client.upsellStrategy || []).includes(product)
-                      ? PRODUCT_COLORS[product]
-                      : "bg-secondary text-secondary-foreground hover:bg-secondary/80",
-                  )}
-                >
-                  {product}
-                </button>
-              ))}
+              {availableUpsellProducts.map((product) => {
+                const colors = getProductColor(product)
+                return (
+                  <button
+                    key={product}
+                    onClick={() => toggleUpsellProduct(product)}
+                    style={
+                      (client.upsellStrategy || []).includes(product)
+                        ? { backgroundColor: colors.bgColor, color: colors.textColor }
+                        : undefined
+                    }
+                    className={cn(
+                      "px-2.5 py-1 rounded-md text-xs font-medium transition-all",
+                      (client.upsellStrategy || []).includes(product)
+                        ? ""
+                        : "bg-secondary text-secondary-foreground hover:bg-secondary/80",
+                    )}
+                  >
+                    {product}
+                  </button>
+                )
+              })}
             </div>
           ) : (
             <p className="text-sm text-muted-foreground">

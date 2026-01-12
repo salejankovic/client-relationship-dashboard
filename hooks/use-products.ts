@@ -1,9 +1,10 @@
 import { useEffect, useState } from "react"
 import { supabase } from "@/lib/supabase"
-import type { Product } from "@/lib/types"
+import type { Product, ProductConfig } from "@/lib/types"
 
 export function useProducts() {
   const [products, setProducts] = useState<Product[]>([])
+  const [productConfigs, setProductConfigs] = useState<ProductConfig[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<Error | null>(null)
 
@@ -14,7 +15,14 @@ export function useProducts() {
 
       if (error) throw error
 
-      setProducts((data || []).map((row: any) => row.name as Product))
+      const configs: ProductConfig[] = (data || []).map((row: any) => ({
+        name: row.name as Product,
+        bgColor: row.bg_color || "#3b82f6",
+        textColor: row.text_color || "#ffffff",
+      }))
+
+      setProducts(configs.map((c) => c.name))
+      setProductConfigs(configs)
       setError(null)
     } catch (err) {
       setError(err as Error)
@@ -40,14 +48,36 @@ export function useProducts() {
     }
   }, [])
 
-  const addProduct = async (productName: string) => {
+  const addProduct = async (productName: string, bgColor = "#3b82f6", textColor = "#ffffff") => {
     try {
-      const { error } = await supabase.from("products").insert({ name: productName })
+      const { error } = await supabase.from("products").insert({
+        name: productName,
+        bg_color: bgColor,
+        text_color: textColor,
+      })
 
       if (error) throw error
       await fetchProducts()
     } catch (err) {
       console.error("Error adding product:", err)
+      throw err
+    }
+  }
+
+  const updateProductColors = async (productName: string, bgColor: string, textColor: string) => {
+    try {
+      const { error } = await supabase
+        .from("products")
+        .update({
+          bg_color: bgColor,
+          text_color: textColor,
+        })
+        .eq("name", productName)
+
+      if (error) throw error
+      await fetchProducts()
+    } catch (err) {
+      console.error("Error updating product colors:", err)
       throw err
     }
   }
@@ -64,12 +94,25 @@ export function useProducts() {
     }
   }
 
+  const getProductConfig = (productName: Product): ProductConfig => {
+    return (
+      productConfigs.find((c) => c.name === productName) || {
+        name: productName,
+        bgColor: "#3b82f6",
+        textColor: "#ffffff",
+      }
+    )
+  }
+
   return {
     products,
+    productConfigs,
     loading,
     error,
     addProduct,
+    updateProductColors,
     deleteProduct,
+    getProductConfig,
     refetch: fetchProducts,
   }
 }

@@ -6,36 +6,22 @@ import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import type { Client, ClientCategory, Product, ProductConfig } from "@/lib/types"
 import { cn } from "@/lib/utils"
-import type { Client, ClientCategory, Product } from "@/lib/types"
+
+const getProductColor = (product: Product, configs: ProductConfig[]) => {
+  const config = configs.find((c) => c.name === product)
+  if (!config) return { bgColor: "#3b82f6", textColor: "#ffffff" }
+  return { bgColor: config.bgColor, textColor: config.textColor }
+}
 
 interface ClientListProps {
   clients: Client[]
   selectedClient: Client | null
   onSelectClient: (client: Client) => void
   productFilter: Product[]
+  productConfigs: ProductConfig[]
   onProductFilterChange: (products: Product[]) => void
-}
-
-const getProductColor = (product: string) => {
-  switch (product) {
-    case "Mobile App":
-      return "bg-red-500 text-white"
-    case "Litteraworks":
-      return "bg-gray-700 text-white"
-    case "Pchella":
-      return "bg-yellow-500 text-black"
-    case "TTS":
-      return "bg-yellow-500 text-black"
-    case "Komentari":
-      return "bg-gray-700 text-white"
-    case "CMS":
-      return "bg-gray-700 text-white"
-    case "e-Kiosk":
-      return "bg-gray-700 text-white"
-    default:
-      return "bg-gray-500 text-white"
-  }
 }
 
 export function ClientList({
@@ -43,6 +29,7 @@ export function ClientList({
   selectedClient,
   onSelectClient,
   productFilter,
+  productConfigs,
   onProductFilterChange,
 }: ClientListProps) {
   const [searchQuery, setSearchQuery] = useState("")
@@ -212,14 +199,18 @@ export function ClientList({
 
             {client.products.length > 0 && (
               <div className="flex flex-wrap gap-1 mb-2">
-                {client.products.map((product) => (
-                  <span
-                    key={product}
-                    className={cn("text-xs px-2 py-0.5 rounded font-medium", getProductColor(product))}
-                  >
-                    {product}
-                  </span>
-                ))}
+                {client.products.map((product) => {
+                  const colors = getProductColor(product, productConfigs)
+                  return (
+                    <span
+                      key={product}
+                      style={{ backgroundColor: colors.bgColor, color: colors.textColor }}
+                      className="text-xs px-2 py-0.5 rounded font-medium"
+                    >
+                      {product}
+                    </span>
+                  )
+                })}
               </div>
             )}
 

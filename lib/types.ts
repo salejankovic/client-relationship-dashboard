@@ -2,6 +2,12 @@ export type ClientCategory = "Media" | "Sport"
 export type ClientStatus = "active" | "pending" | "inactive"
 export type Product = "Pchella" | "TTS" | "Litteraworks" | "Mobile App" | "e-Kiosk" | "Komentari" | "CMS"
 
+export interface ProductConfig {
+  name: Product
+  bgColor: string
+  textColor: string
+}
+
 export interface Contact {
   id: string
   name: string

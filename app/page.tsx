@@ -22,7 +22,8 @@ export default function ClientDashboard() {
 
   // Fetch data from Supabase
   const { clients, loading: clientsLoading, addClient, updateClient, deleteClient } = useClients()
-  const { products, loading: productsLoading, addProduct, deleteProduct } = useProducts()
+  const { products, productConfigs, loading: productsLoading, addProduct, updateProductColors, deleteProduct } =
+    useProducts()
   const { teamMembers, loading: teamMembersLoading } = useTeamMembers()
 
   const loading = clientsLoading || productsLoading || teamMembersLoading
@@ -41,22 +42,6 @@ export default function ClientDashboard() {
     await deleteClient(clientId)
     if (selectedClient?.id === clientId) {
       setSelectedClient(null)
-    }
-  }
-
-  const handleUpdateProducts = async (newProducts: Product[]) => {
-    // Find products to add and remove
-    const toAdd = newProducts.filter((p) => !products.includes(p))
-    const toRemove = products.filter((p) => !newProducts.includes(p))
-
-    // Add new products
-    for (const product of toAdd) {
-      await addProduct(product)
-    }
-
-    // Remove products
-    for (const product of toRemove) {
-      await deleteProduct(product)
     }
   }
 
@@ -104,6 +89,7 @@ export default function ClientDashboard() {
             onSelectClient={setSelectedClient}
             productFilter={selectedProducts}
             onProductFilterChange={setSelectedProducts}
+            productConfigs={productConfigs}
           />
           <main className="flex-1 overflow-auto">
             {selectedClient ? (
@@ -113,6 +99,7 @@ export default function ClientDashboard() {
                 onDelete={handleDeleteClient}
                 teamMembers={teamMembers}
                 availableProducts={products}
+                productConfigs={productConfigs}
               />
             ) : (
               <div className="flex h-full items-center justify-center">
@@ -135,8 +122,10 @@ export default function ClientDashboard() {
       <ProductManagerModal
         open={isProductManagerOpen}
         onOpenChange={setIsProductManagerOpen}
-        products={products}
-        onUpdateProducts={handleUpdateProducts}
+        productConfigs={productConfigs}
+        onAddProduct={addProduct}
+        onDeleteProduct={deleteProduct}
+        onUpdateColors={updateProductColors}
       />
     </div>
   )

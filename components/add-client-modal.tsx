@@ -30,6 +30,7 @@ export function AddClientModal({ open, onOpenChange, onAddClient, availableProdu
     contactName: "",
     contactEmail: "",
     contactRole: "",
+    logoUrl: "",
   })
 
   const toggleProduct = (product: Product) => {
@@ -39,6 +40,21 @@ export function AddClientModal({ open, onOpenChange, onAddClient, availableProdu
         ? prev.products.filter((p) => p !== product)
         : [...prev.products, product],
     }))
+  }
+
+  const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (file) {
+      const reader = new FileReader()
+      reader.onloadend = () => {
+        const base64String = reader.result as string
+        setFormData({ ...formData, logoUrl: base64String })
+      }
+      reader.onerror = (error) => {
+        console.error('FileReader error:', error)
+      }
+      reader.readAsDataURL(file)
+    }
   }
 
   const handleSubmit = () => {
@@ -54,6 +70,7 @@ export function AddClientModal({ open, onOpenChange, onAddClient, availableProdu
       nextAction: formData.nextAction || undefined,
       nextActionDate: formData.nextActionDate || undefined,
       notes: formData.notes || undefined,
+      logoUrl: formData.logoUrl || undefined,
       contacts:
         formData.contactName && formData.contactEmail
           ? [
@@ -88,6 +105,7 @@ export function AddClientModal({ open, onOpenChange, onAddClient, availableProdu
       contactName: "",
       contactEmail: "",
       contactRole: "",
+      logoUrl: "",
     })
   }
 
@@ -107,6 +125,37 @@ export function AddClientModal({ open, onOpenChange, onAddClient, availableProdu
               onChange={(e) => setFormData({ ...formData, name: e.target.value })}
               placeholder="Enter client name"
             />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="logo">Client Logo (optional)</Label>
+            <div className="flex items-center gap-4">
+              {formData.logoUrl ? (
+                <div className="h-16 w-16 rounded-lg overflow-hidden bg-muted border">
+                  <img
+                    src={formData.logoUrl}
+                    alt="Logo preview"
+                    className="h-full w-full object-cover"
+                  />
+                </div>
+              ) : (
+                <div className="h-16 w-16 rounded-lg bg-muted border flex items-center justify-center text-xs text-muted-foreground">
+                  No logo
+                </div>
+              )}
+              <div className="flex-1">
+                <Input
+                  id="logo"
+                  type="file"
+                  accept="image/*"
+                  onChange={handleLogoUpload}
+                  className="cursor-pointer"
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  Upload a logo image (JPG, PNG, etc.)
+                </p>
+              </div>
+            </div>
           </div>
 
           <div className="grid grid-cols-2 gap-4">
