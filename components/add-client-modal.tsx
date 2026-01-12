@@ -31,6 +31,8 @@ export function AddClientModal({ open, onOpenChange, onAddClient, availableProdu
     category: "Media" as ClientCategory,
     status: "pending" as ClientStatus,
     website: "",
+    city: "",
+    country: "",
     nextAction: "",
     nextActionDate: "",
     notes: "",
@@ -89,6 +91,8 @@ export function AddClientModal({ open, onOpenChange, onAddClient, availableProdu
         status: formData.status,
         products: formData.products,
         website: formData.website || undefined,
+        city: formData.city || undefined,
+        country: formData.country || undefined,
         nextAction: formData.nextAction || undefined,
         nextActionDate: formData.nextActionDate || undefined,
         notes: formData.notes || undefined,
@@ -125,6 +129,8 @@ export function AddClientModal({ open, onOpenChange, onAddClient, availableProdu
         category: "Media",
         status: "pending",
         website: "",
+        city: "",
+        country: "",
         nextAction: "",
         nextActionDate: "",
         notes: "",
@@ -247,6 +253,28 @@ export function AddClientModal({ open, onOpenChange, onAddClient, availableProdu
               onChange={(e) => setFormData({ ...formData, website: e.target.value })}
               placeholder="https://example.com"
             />
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="city">City</Label>
+              <Input
+                id="city"
+                value={formData.city}
+                onChange={(e) => setFormData({ ...formData, city: e.target.value })}
+                placeholder="Zagreb"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="country">Country</Label>
+              <Input
+                id="country"
+                value={formData.country}
+                onChange={(e) => setFormData({ ...formData, country: e.target.value })}
+                placeholder="Croatia"
+              />
+            </div>
           </div>
 
           <div className="space-y-2">

@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { Search } from "lucide-react"
+import { Search, ChevronDown, ChevronUp } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -38,13 +38,24 @@ export function ClientList({
   const [searchQuery, setSearchQuery] = useState("")
   const [branchFilter, setBranchFilter] = useState<ClientCategory | "All">("All")
   const [responsibleFilter, setResponsibleFilter] = useState<string | "All">("All")
+  const [showMoreFilters, setShowMoreFilters] = useState(false)
+  const [countryFilter, setCountryFilter] = useState<string | "All">("All")
+  const [cityFilter, setCityFilter] = useState<string | "All">("All")
+  const [upsellFilter, setUpsellFilter] = useState<Product[]>([])
+
+  // Get unique countries and cities
+  const uniqueCountries = Array.from(new Set(clients.map((c) => c.country).filter(Boolean))) as string[]
+  const uniqueCities = Array.from(new Set(clients.map((c) => c.city).filter(Boolean))) as string[]
 
   const filteredClients = clients.filter((client) => {
     const matchesSearch = client.name.toLowerCase().includes(searchQuery.toLowerCase())
     const matchesBranch = branchFilter === "All" || client.category === branchFilter
     const matchesProducts = productFilter.length === 0 || productFilter.some((p) => client.products.includes(p))
     const matchesResponsible = responsibleFilter === "All" || client.assignedTo === responsibleFilter
-    return matchesSearch && matchesBranch && matchesProducts && matchesResponsible
+    const matchesCountry = countryFilter === "All" || client.country === countryFilter
+    const matchesCity = cityFilter === "All" || client.city === cityFilter
+    const matchesUpsell = upsellFilter.length === 0 || upsellFilter.some((p) => (client.upsellStrategy || []).includes(p))
+    return matchesSearch && matchesBranch && matchesProducts && matchesResponsible && matchesCountry && matchesCity && matchesUpsell
   })
 
   return (
@@ -161,6 +172,115 @@ export function ClientList({
               ))}
             </SelectContent>
           </Select>
+        </div>
+
+        <div className="mt-4">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setShowMoreFilters(!showMoreFilters)}
+            className="w-full flex items-center justify-between text-xs font-semibold text-muted-foreground hover:text-foreground"
+          >
+            <span>MORE FILTERS</span>
+            {showMoreFilters ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+          </Button>
+
+          {showMoreFilters && (
+            <div className="mt-3 space-y-4">
+              {/* Country Filter */}
+              <div>
+                <label className="text-xs font-semibold text-muted-foreground mb-2 block">COUNTRY</label>
+                <Select value={countryFilter} onValueChange={(value) => setCountryFilter(value)}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="All" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="All">All</SelectItem>
+                    {uniqueCountries.map((country) => (
+                      <SelectItem key={country} value={country}>
+                        {country}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* City Filter */}
+              <div>
+                <label className="text-xs font-semibold text-muted-foreground mb-2 block">CITY</label>
+                <Select value={cityFilter} onValueChange={(value) => setCityFilter(value)}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="All" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="All">All</SelectItem>
+                    {uniqueCities.map((city) => (
+                      <SelectItem key={city} value={city}>
+                        {city}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Upsell Strategy Filter */}
+              <div>
+                <label className="text-xs font-semibold text-muted-foreground mb-2 block">UPSELL STRATEGY</label>
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    variant={upsellFilter.length === 0 ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setUpsellFilter([])}
+                    className="text-xs"
+                  >
+                    All
+                  </Button>
+                  <Button
+                    variant={upsellFilter.includes("Mobile App") ? "default" : "outline"}
+                    size="sm"
+                    onClick={() =>
+                      setUpsellFilter(
+                        upsellFilter.includes("Mobile App")
+                          ? upsellFilter.filter((p) => p !== "Mobile App")
+                          : [...upsellFilter, "Mobile App"],
+                      )
+                    }
+                    className="text-xs"
+                  >
+                    mPanel/Apps
+                  </Button>
+                  <Button
+                    variant={upsellFilter.includes("Litteraworks") ? "default" : "outline"}
+                    size="sm"
+                    onClick={() =>
+                      setUpsellFilter(
+                        upsellFilter.includes("Litteraworks")
+                          ? upsellFilter.filter((p) => p !== "Litteraworks")
+                          : [...upsellFilter, "Litteraworks"],
+                      )
+                    }
+                    className="text-xs"
+                  >
+                    Litteraworks
+                  </Button>
+                  <Button
+                    variant={upsellFilter.includes("Pchella") ? "default" : "outline"}
+                    size="sm"
+                    onClick={() =>
+                      setUpsellFilter(
+                        upsellFilter.includes("Pchella")
+                          ? upsellFilter.filter((p) => p !== "Pchella")
+                          : [...upsellFilter, "Pchella"],
+                      )
+                    }
+                    className="text-xs"
+                  >
+                    Pchella
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 

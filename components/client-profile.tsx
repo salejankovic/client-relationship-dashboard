@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { ExternalLink, Plus, Check, User, Trash2 } from "lucide-react"
+import { ExternalLink, Plus, Check, User, Trash2, Pencil, X, MapPin } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
@@ -42,7 +42,11 @@ export function ClientProfile({ client, onUpdate, onDelete, teamMembers, availab
   const [nextActionDate, setNextActionDate] = useState(client.nextActionDate || "")
   const [notes, setNotes] = useState(client.notes || "")
   const [assignedTo, setAssignedTo] = useState(client.assignedTo || "")
+  const [city, setCity] = useState(client.city || "")
+  const [country, setCountry] = useState(client.country || "")
   const [newContact, setNewContact] = useState({ name: "", email: "", role: "" })
+  const [editingContact, setEditingContact] = useState<string | null>(null)
+  const [editContact, setEditContact] = useState({ name: "", email: "", role: "" })
   const [newTodo, setNewTodo] = useState("")
   const [newComment, setNewComment] = useState("")
   const [showAddContact, setShowAddContact] = useState(false)
@@ -55,7 +59,9 @@ export function ClientProfile({ client, onUpdate, onDelete, teamMembers, availab
     setNextActionDate(client.nextActionDate || "")
     setNotes(client.notes || "")
     setAssignedTo(client.assignedTo || "")
-  }, [client.id, client.nextAction, client.nextActionDate, client.notes, client.assignedTo])
+    setCity(client.city || "")
+    setCountry(client.country || "")
+  }, [client.id, client.nextAction, client.nextActionDate, client.notes, client.assignedTo, client.city, client.country])
 
   const toggleProduct = (product: Product) => {
     const products = client.products.includes(product)
@@ -71,6 +77,30 @@ export function ClientProfile({ client, onUpdate, onDelete, teamMembers, availab
       setNewContact({ name: "", email: "", role: "" })
       setShowAddContact(false)
     }
+  }
+
+  const deleteContact = (contactId: string) => {
+    const contacts = client.contacts.filter((c) => c.id !== contactId)
+    onUpdate({ ...client, contacts })
+  }
+
+  const startEditContact = (contact: any) => {
+    setEditingContact(contact.id)
+    setEditContact({ name: contact.name, email: contact.email, role: contact.role || "" })
+  }
+
+  const saveEditContact = (contactId: string) => {
+    const contacts = client.contacts.map((c) =>
+      c.id === contactId ? { ...c, name: editContact.name, email: editContact.email, role: editContact.role } : c
+    )
+    onUpdate({ ...client, contacts })
+    setEditingContact(null)
+    setEditContact({ name: "", email: "", role: "" })
+  }
+
+  const cancelEditContact = () => {
+    setEditingContact(null)
+    setEditContact({ name: "", email: "", role: "" })
   }
 
   const addTodo = () => {
@@ -107,6 +137,10 @@ export function ClientProfile({ client, onUpdate, onDelete, teamMembers, availab
 
   const saveAssignedTo = () => {
     onUpdate({ ...client, assignedTo })
+  }
+
+  const saveLocation = () => {
+    onUpdate({ ...client, city, country })
   }
 
   const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -185,7 +219,7 @@ export function ClientProfile({ client, onUpdate, onDelete, teamMembers, availab
             </div>
             <div>
               <h1 className="text-3xl font-bold text-foreground mb-2">{client.name}</h1>
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-3 mb-2">
                 <Badge
                   variant="outline"
                   className={cn(
@@ -206,6 +240,14 @@ export function ClientProfile({ client, onUpdate, onDelete, teamMembers, availab
                   </a>
                 )}
               </div>
+              {(city || country) && (
+                <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                  <MapPin className="h-3.5 w-3.5" />
+                  <span>
+                    {city && country ? `${city}, ${country}` : city || country}
+                  </span>
+                </div>
+              )}
             </div>
           </div>
           <Button variant="destructive" size="sm" onClick={() => setShowDeleteDialog(true)}>
@@ -214,7 +256,7 @@ export function ClientProfile({ client, onUpdate, onDelete, teamMembers, availab
           </Button>
         </div>
 
-        <div className="grid gap-4 md:grid-cols-2 mb-6">
+        <div className="grid gap-4 md:grid-cols-3 mb-6">
           <Card className="bg-card border-border">
             <CardHeader className="pb-3">
               <CardTitle className="text-base flex items-center gap-2">
@@ -243,32 +285,78 @@ export function ClientProfile({ client, onUpdate, onDelete, teamMembers, availab
 
           <Card className="bg-card border-border">
             <CardHeader className="pb-3">
+              <CardTitle className="text-base flex items-center gap-2">
+                <MapPin className="h-4 w-4" />
+                Location
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              <Input
+                placeholder="City"
+                value={city}
+                onChange={(e) => setCity(e.target.value)}
+                onBlur={saveLocation}
+                className="bg-background border-border"
+              />
+              <Input
+                placeholder="Country"
+                value={country}
+                onChange={(e) => setCountry(e.target.value)}
+                onBlur={saveLocation}
+                className="bg-background border-border"
+              />
+            </CardContent>
+          </Card>
+
+          <Card className="bg-card border-border">
+            <CardHeader className="pb-3">
               <CardTitle className="text-base">Products</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="flex flex-wrap gap-2">
-                {availableProducts.map((product) => {
-                  const colors = getProductColor(product)
-                  return (
-                    <button
-                      key={product}
-                      onClick={() => toggleProduct(product)}
-                      style={
-                        client.products.includes(product)
-                          ? { backgroundColor: colors.bgColor, color: colors.textColor }
-                          : undefined
-                      }
-                      className={cn(
-                        "px-2.5 py-1 rounded-md text-xs font-medium transition-all",
-                        client.products.includes(product)
-                          ? ""
-                          : "bg-secondary text-secondary-foreground hover:bg-secondary/80",
-                      )}
-                    >
-                      {product}
-                    </button>
-                  )
-                })}
+              <div className="space-y-4">
+                {/* Current Products */}
+                {client.products.length > 0 && (
+                  <div>
+                    <div className="text-xs font-semibold text-muted-foreground mb-2">CURRENT PRODUCTS</div>
+                    <div className="flex flex-wrap gap-2">
+                      {availableProducts
+                        .filter((product) => client.products.includes(product))
+                        .map((product) => {
+                          const colors = getProductColor(product)
+                          return (
+                            <button
+                              key={product}
+                              onClick={() => toggleProduct(product)}
+                              style={{ backgroundColor: colors.bgColor, color: colors.textColor }}
+                              className="px-2.5 py-1 rounded-md text-xs font-medium transition-all"
+                            >
+                              {product}
+                            </button>
+                          )
+                        })}
+                    </div>
+                  </div>
+                )}
+
+                {/* Available Products */}
+                {availableProducts.some((p) => !client.products.includes(p)) && (
+                  <div>
+                    <div className="text-xs font-semibold text-muted-foreground mb-2">AVAILABLE PRODUCTS</div>
+                    <div className="flex flex-wrap gap-2">
+                      {availableProducts
+                        .filter((product) => !client.products.includes(product))
+                        .map((product) => (
+                          <button
+                            key={product}
+                            onClick={() => toggleProduct(product)}
+                            className="px-2.5 py-1 rounded-md text-xs font-medium transition-all bg-secondary text-secondary-foreground hover:bg-secondary/80"
+                          >
+                            {product}
+                          </button>
+                        ))}
+                    </div>
+                  </div>
+                )}
               </div>
             </CardContent>
           </Card>
@@ -347,9 +435,63 @@ export function ClientProfile({ client, onUpdate, onDelete, teamMembers, availab
           <CardContent className="space-y-4">
             {client.contacts.map((contact) => (
               <div key={contact.id} className="pb-3 border-b border-border last:border-0 last:pb-0">
-                <p className="font-medium text-foreground">{contact.name}</p>
-                <p className="text-sm text-muted-foreground">{contact.email}</p>
-                {contact.role && <p className="text-xs text-muted-foreground mt-1">{contact.role}</p>}
+                {editingContact === contact.id ? (
+                  <div className="space-y-2">
+                    <Input
+                      placeholder="Name"
+                      value={editContact.name}
+                      onChange={(e) => setEditContact({ ...editContact, name: e.target.value })}
+                      className="bg-background border-border"
+                    />
+                    <Input
+                      placeholder="Email"
+                      type="email"
+                      value={editContact.email}
+                      onChange={(e) => setEditContact({ ...editContact, email: e.target.value })}
+                      className="bg-background border-border"
+                    />
+                    <Input
+                      placeholder="Role (optional)"
+                      value={editContact.role}
+                      onChange={(e) => setEditContact({ ...editContact, role: e.target.value })}
+                      className="bg-background border-border"
+                    />
+                    <div className="flex gap-2">
+                      <Button onClick={() => saveEditContact(contact.id)} size="sm" className="flex-1">
+                        Save
+                      </Button>
+                      <Button onClick={cancelEditContact} size="sm" variant="outline" className="flex-1">
+                        Cancel
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <p className="font-medium text-foreground">{contact.name}</p>
+                      <p className="text-sm text-muted-foreground">{contact.email}</p>
+                      {contact.role && <p className="text-xs text-muted-foreground mt-1">{contact.role}</p>}
+                    </div>
+                    <div className="flex gap-1">
+                      <Button
+                        onClick={() => startEditContact(contact)}
+                        size="sm"
+                        variant="ghost"
+                        className="h-8 w-8 p-0"
+                      >
+                        <Pencil className="h-3.5 w-3.5" />
+                      </Button>
+                      <Button
+                        onClick={() => deleteContact(contact.id)}
+                        size="sm"
+                        variant="ghost"
+                        className="h-8 w-8 p-0 text-destructive hover:text-destructive"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+                  </div>
+                )}
               </div>
             ))}
             {showAddContact ? (

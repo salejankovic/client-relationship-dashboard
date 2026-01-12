@@ -35,6 +35,8 @@ export interface Client {
   status: ClientStatus
   products: Product[]
   website?: string
+  city?: string
+  country?: string
   nextAction?: string
   nextActionDate?: string
   contacts: Contact[]
