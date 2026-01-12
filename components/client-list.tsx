@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import type { Client, ClientCategory, Product, ProductConfig } from "@/lib/types"
 import { cn } from "@/lib/utils"
 
@@ -22,6 +23,7 @@ interface ClientListProps {
   productFilter: Product[]
   productConfigs: ProductConfig[]
   onProductFilterChange: (products: Product[]) => void
+  teamMembers: string[]
 }
 
 export function ClientList({
@@ -31,16 +33,18 @@ export function ClientList({
   productFilter,
   productConfigs,
   onProductFilterChange,
+  teamMembers,
 }: ClientListProps) {
   const [searchQuery, setSearchQuery] = useState("")
   const [branchFilter, setBranchFilter] = useState<ClientCategory | "All">("All")
+  const [responsibleFilter, setResponsibleFilter] = useState<string | "All">("All")
 
   const filteredClients = clients.filter((client) => {
     const matchesSearch = client.name.toLowerCase().includes(searchQuery.toLowerCase())
     const matchesBranch = branchFilter === "All" || client.category === branchFilter
     const matchesProducts = productFilter.length === 0 || productFilter.some((p) => client.products.includes(p))
-
-    return matchesSearch && matchesBranch && matchesProducts
+    const matchesResponsible = responsibleFilter === "All" || client.assignedTo === responsibleFilter
+    return matchesSearch && matchesBranch && matchesProducts && matchesResponsible
   })
 
   return (
@@ -140,6 +144,23 @@ export function ClientList({
               Sport
             </Button>
           </div>
+        </div>
+
+        <div className="mt-4">
+          <label className="text-xs font-semibold text-muted-foreground mb-2 block">FILTER BY RESPONSIBLE PERSON</label>
+          <Select value={responsibleFilter} onValueChange={(value) => setResponsibleFilter(value)}>
+            <SelectTrigger className="w-full">
+              <SelectValue placeholder="All" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="All">All</SelectItem>
+              {teamMembers.map((member) => (
+                <SelectItem key={member} value={member}>
+                  {member}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
       </div>
 

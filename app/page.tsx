@@ -96,6 +96,7 @@ export default function ClientDashboard() {
             onSelectClient={setSelectedClient}
             productFilter={selectedProducts}
             onProductFilterChange={setSelectedProducts}
+            teamMembers={teamMembers}
             productConfigs={productConfigs}
           />
           <main className="flex-1 overflow-auto">

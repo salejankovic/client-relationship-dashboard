@@ -416,29 +416,50 @@ export function ClientProfile({ client, onUpdate, onDelete, teamMembers, availab
             Select products you want to sell to this client (products they don't currently have):
           </p>
           {availableUpsellProducts.length > 0 ? (
-            <div className="flex flex-wrap gap-2">
-              {availableUpsellProducts.map((product) => {
-                const colors = getProductColor(product)
-                return (
-                  <button
-                    key={product}
-                    onClick={() => toggleUpsellProduct(product)}
-                    style={
-                      (client.upsellStrategy || []).includes(product)
-                        ? { backgroundColor: colors.bgColor, color: colors.textColor }
-                        : undefined
-                    }
-                    className={cn(
-                      "px-2.5 py-1 rounded-md text-xs font-medium transition-all",
-                      (client.upsellStrategy || []).includes(product)
-                        ? ""
-                        : "bg-secondary text-secondary-foreground hover:bg-secondary/80",
-                    )}
-                  >
-                    {product}
-                  </button>
-                )
-              })}
+            <div className="space-y-4">
+              {/* Selected Products */}
+              {(client.upsellStrategy || []).some((p) => availableUpsellProducts.includes(p)) && (
+                <div>
+                  <div className="text-xs font-semibold text-muted-foreground mb-2">SELECTED FOR UPSELL</div>
+                  <div className="flex flex-wrap gap-2">
+                    {availableUpsellProducts
+                      .filter((product) => (client.upsellStrategy || []).includes(product))
+                      .map((product) => {
+                        const colors = getProductColor(product)
+                        return (
+                          <button
+                            key={product}
+                            onClick={() => toggleUpsellProduct(product)}
+                            style={{ backgroundColor: colors.bgColor, color: colors.textColor }}
+                            className="px-2.5 py-1 rounded-md text-xs font-medium transition-all"
+                          >
+                            {product}
+                          </button>
+                        )
+                      })}
+                  </div>
+                </div>
+              )}
+
+              {/* Unselected Products */}
+              {availableUpsellProducts.some((p) => !(client.upsellStrategy || []).includes(p)) && (
+                <div>
+                  <div className="text-xs font-semibold text-muted-foreground mb-2">AVAILABLE PRODUCTS</div>
+                  <div className="flex flex-wrap gap-2">
+                    {availableUpsellProducts
+                      .filter((product) => !(client.upsellStrategy || []).includes(product))
+                      .map((product) => (
+                        <button
+                          key={product}
+                          onClick={() => toggleUpsellProduct(product)}
+                          className="px-2.5 py-1 rounded-md text-xs font-medium transition-all bg-secondary text-secondary-foreground hover:bg-secondary/80"
+                        >
+                          {product}
+                        </button>
+                      ))}
+                  </div>
+                </div>
+              )}
             </div>
           ) : (
             <p className="text-sm text-muted-foreground">
