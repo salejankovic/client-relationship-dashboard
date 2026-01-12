@@ -32,6 +32,7 @@ export function AddClientModal({ open, onOpenChange, onAddClient, availableProdu
     contactRole: "",
     logoUrl: "",
   })
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
   const toggleProduct = (product: Product) => {
     setFormData((prev) => ({
@@ -57,56 +58,81 @@ export function AddClientModal({ open, onOpenChange, onAddClient, availableProdu
     }
   }
 
-  const handleSubmit = () => {
-    if (!formData.name.trim()) return
-
-    const newClient: Client = {
-      id: Date.now().toString(),
-      name: formData.name,
-      category: formData.category,
-      status: formData.status,
-      products: formData.products,
-      website: formData.website || undefined,
-      nextAction: formData.nextAction || undefined,
-      nextActionDate: formData.nextActionDate || undefined,
-      notes: formData.notes || undefined,
-      logoUrl: formData.logoUrl || undefined,
-      contacts:
-        formData.contactName && formData.contactEmail
-          ? [
-              {
-                id: "c1",
-                name: formData.contactName,
-                email: formData.contactEmail,
-                role: formData.contactRole || undefined,
-              },
-            ]
-          : [],
-      todos: [],
-      activity: [
-        {
-          id: "a1",
-          comment: "Client created",
-          date: new Date().toISOString(),
-        },
-      ],
+  const handleSubmit = async () => {
+    if (!formData.name.trim()) {
+      console.log('Validation failed: name is required')
+      return
     }
 
-    onAddClient(newClient)
-    setFormData({
-      name: "",
-      category: "Media",
-      status: "pending",
-      website: "",
-      nextAction: "",
-      nextActionDate: "",
-      notes: "",
-      products: [],
-      contactName: "",
-      contactEmail: "",
-      contactRole: "",
-      logoUrl: "",
-    })
+    if (isSubmitting) {
+      console.log('Already submitting, please wait...')
+      return
+    }
+
+    try {
+      setIsSubmitting(true)
+      console.log('Creating new client:', formData.name)
+
+      const newClient: Client = {
+        id: Date.now().toString(),
+        name: formData.name,
+        category: formData.category,
+        status: formData.status,
+        products: formData.products,
+        website: formData.website || undefined,
+        nextAction: formData.nextAction || undefined,
+        nextActionDate: formData.nextActionDate || undefined,
+        notes: formData.notes || undefined,
+        logoUrl: formData.logoUrl || undefined,
+        contacts:
+          formData.contactName && formData.contactEmail
+            ? [
+                {
+                  id: "c1",
+                  name: formData.contactName,
+                  email: formData.contactEmail,
+                  role: formData.contactRole || undefined,
+                },
+              ]
+            : [],
+        todos: [],
+        activity: [
+          {
+            id: "a1",
+            comment: "Client created",
+            date: new Date().toISOString(),
+          },
+        ],
+      }
+
+      console.log('Calling onAddClient with client:', newClient)
+      await onAddClient(newClient)
+      console.log('Client created successfully')
+
+      // Reset form
+      setFormData({
+        name: "",
+        category: "Media",
+        status: "pending",
+        website: "",
+        nextAction: "",
+        nextActionDate: "",
+        notes: "",
+        products: [],
+        contactName: "",
+        contactEmail: "",
+        contactRole: "",
+        logoUrl: "",
+      })
+
+      // Close modal
+      onOpenChange(false)
+    } catch (error) {
+      console.error('Error creating client:', error)
+      alert('Failed to create client. Check console for details.')
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   return (
@@ -300,8 +326,8 @@ export function AddClientModal({ open, onOpenChange, onAddClient, availableProdu
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
-          <Button onClick={handleSubmit} disabled={!formData.name.trim()}>
-            Add Client
+          <Button onClick={handleSubmit} disabled={isSubmitting}>
+            {isSubmitting ? 'Creating...' : 'Create Client'}
           </Button>
         </DialogFooter>
       </DialogContent>

@@ -34,8 +34,15 @@ export default function ClientDashboard() {
   }
 
   const handleAddClient = async (newClient: Client) => {
-    await addClient(newClient)
-    setIsAddClientOpen(false)
+    try {
+      console.log('handleAddClient called with:', newClient)
+      await addClient(newClient)
+      console.log('Client added successfully to database')
+      // Don't close modal here - let AddClientModal handle it
+    } catch (error) {
+      console.error('Error in handleAddClient:', error)
+      throw error // Re-throw so AddClientModal can catch it
+    }
   }
 
   const handleDeleteClient = async (clientId: string) => {
