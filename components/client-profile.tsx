@@ -312,60 +312,58 @@ export function ClientProfile({ client, onUpdate, onDelete, teamMembers, availab
           </div>
         </div>
 
-        <Card className="bg-card border-border mb-6">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base">Products</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {/* Current Products */}
-                {client.products.length > 0 && (
-                  <div>
-                    <div className="text-xs font-semibold text-muted-foreground mb-2">CURRENT PRODUCTS</div>
-                    <div className="flex flex-wrap gap-2">
-                      {availableProducts
-                        .filter((product) => client.products.includes(product))
-                        .map((product) => {
-                          const colors = getProductColor(product)
-                          return (
-                            <button
-                              key={product}
-                              onClick={() => toggleProduct(product)}
-                              style={{ backgroundColor: colors.bgColor, color: colors.textColor }}
-                              className="px-2.5 py-1 rounded-md text-xs font-medium transition-all"
-                            >
-                              {product}
-                            </button>
-                          )
-                        })}
-                    </div>
-                  </div>
-                )}
-
-                {/* Available Products */}
-                {availableProducts.some((p) => !client.products.includes(p)) && (
-                  <div>
-                    <div className="text-xs font-semibold text-muted-foreground mb-2">AVAILABLE PRODUCTS</div>
-                    <div className="flex flex-wrap gap-2">
-                      {availableProducts
-                        .filter((product) => !client.products.includes(product))
-                        .map((product) => (
-                          <button
-                            key={product}
-                            onClick={() => toggleProduct(product)}
-                            className="px-2.5 py-1 rounded-md text-xs font-medium transition-all bg-secondary text-secondary-foreground hover:bg-secondary/80"
-                          >
-                            {product}
-                          </button>
-                        ))}
-                    </div>
-                  </div>
-                )}
+      <Card className="bg-card border-border mb-6">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base">Products</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            {/* Current Products */}
+            {client.products.length > 0 && (
+              <div>
+                <div className="text-xs font-semibold text-muted-foreground mb-2">CURRENT PRODUCTS</div>
+                <div className="flex flex-wrap gap-2">
+                  {availableProducts
+                    .filter((product) => client.products.includes(product))
+                    .map((product) => {
+                      const colors = getProductColor(product)
+                      return (
+                        <button
+                          key={product}
+                          onClick={() => toggleProduct(product)}
+                          style={{ backgroundColor: colors.bgColor, color: colors.textColor }}
+                          className="px-2.5 py-1 rounded-md text-xs font-medium transition-all"
+                        >
+                          {product}
+                        </button>
+                      )
+                    })}
+                </div>
               </div>
-            </CardContent>
-          </Card>
-        </div>
-      </div>
+            )}
+
+            {/* Available Products */}
+            {availableProducts.some((p) => !client.products.includes(p)) && (
+              <div>
+                <div className="text-xs font-semibold text-muted-foreground mb-2">AVAILABLE PRODUCTS</div>
+                <div className="flex flex-wrap gap-2">
+                  {availableProducts
+                    .filter((product) => !client.products.includes(product))
+                    .map((product) => (
+                      <button
+                        key={product}
+                        onClick={() => toggleProduct(product)}
+                        className="px-2.5 py-1 rounded-md text-xs font-medium transition-all bg-secondary text-secondary-foreground hover:bg-secondary/80"
+                      >
+                        {product}
+                      </button>
+                    ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </CardContent>
+      </Card>
 
       <div className="grid gap-6 md:grid-cols-2 mb-6">
         <Card className="bg-card border-border">
