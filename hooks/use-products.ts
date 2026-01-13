@@ -82,6 +82,21 @@ export function useProducts() {
     }
   }
 
+  const updateProductName = async (oldName: string, newName: string) => {
+    try {
+      const { error } = await supabase
+        .from("products")
+        .update({ name: newName })
+        .eq("name", oldName)
+
+      if (error) throw error
+      await fetchProducts()
+    } catch (err) {
+      console.error("Error updating product name:", err)
+      throw err
+    }
+  }
+
   const deleteProduct = async (productName: string) => {
     try {
       const { error } = await supabase.from("products").delete().eq("name", productName)
@@ -111,6 +126,7 @@ export function useProducts() {
     error,
     addProduct,
     updateProductColors,
+    updateProductName,
     deleteProduct,
     getProductConfig,
     refetch: fetchProducts,

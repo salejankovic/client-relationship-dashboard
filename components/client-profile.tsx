@@ -49,6 +49,9 @@ export function ClientProfile({ client, onUpdate, onDelete, teamMembers, availab
   const [editContact, setEditContact] = useState({ name: "", email: "", role: "" })
   const [newTodo, setNewTodo] = useState("")
   const [newComment, setNewComment] = useState("")
+  const [newCommentDate, setNewCommentDate] = useState(new Date().toISOString().split("T")[0])
+  const [editingActivity, setEditingActivity] = useState<string | null>(null)
+  const [editActivity, setEditActivity] = useState({ comment: "", date: "" })
   const [showAddContact, setShowAddContact] = useState(false)
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
   const [logoFile, setLogoFile] = useState<File | null>(null)
@@ -119,12 +122,42 @@ export function ClientProfile({ client, onUpdate, onDelete, teamMembers, availab
   const addComment = () => {
     if (newComment.trim()) {
       const activity = [
-        { id: Date.now().toString(), comment: newComment, date: new Date().toISOString() },
+        { id: Date.now().toString(), comment: newComment, date: new Date(newCommentDate).toISOString() },
         ...client.activity,
       ]
       onUpdate({ ...client, activity })
       setNewComment("")
+      setNewCommentDate(new Date().toISOString().split("T")[0])
     }
+  }
+
+  const startEditActivity = (activity: any) => {
+    setEditingActivity(activity.id)
+    setEditActivity({
+      comment: activity.comment,
+      date: new Date(activity.date).toISOString().split("T")[0],
+    })
+  }
+
+  const saveEditActivity = (activityId: string) => {
+    const activity = client.activity.map((a) =>
+      a.id === activityId
+        ? { ...a, comment: editActivity.comment, date: new Date(editActivity.date).toISOString() }
+        : a
+    )
+    onUpdate({ ...client, activity })
+    setEditingActivity(null)
+    setEditActivity({ comment: "", date: "" })
+  }
+
+  const cancelEditActivity = () => {
+    setEditingActivity(null)
+    setEditActivity({ comment: "", date: "" })
+  }
+
+  const deleteActivity = (activityId: string) => {
+    const activity = client.activity.filter((a) => a.id !== activityId)
+    onUpdate({ ...client, activity })
   }
 
   const saveNextAction = () => {
@@ -622,7 +655,13 @@ export function ClientProfile({ client, onUpdate, onDelete, teamMembers, availab
               value={newComment}
               onChange={(e) => setNewComment(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && addComment()}
-              className="bg-background border-border"
+              className="bg-background border-border flex-1"
+            />
+            <Input
+              type="date"
+              value={newCommentDate}
+              onChange={(e) => setNewCommentDate(e.target.value)}
+              className="bg-background border-border w-36"
             />
             <Button onClick={addComment} size="sm">
               <Plus className="h-4 w-4" />
@@ -631,14 +670,61 @@ export function ClientProfile({ client, onUpdate, onDelete, teamMembers, availab
           <div className="space-y-3">
             {client.activity.map((log) => (
               <div key={log.id} className="pb-3 border-b border-border last:border-0">
-                <p className="text-sm text-foreground">{log.comment}</p>
-                <p className="text-xs text-muted-foreground mt-1">
-                  {new Date(log.date).toLocaleDateString("en-US", {
-                    month: "short",
-                    day: "numeric",
-                    year: "numeric",
-                  })}
-                </p>
+                {editingActivity === log.id ? (
+                  <div className="space-y-2">
+                    <Textarea
+                      placeholder="Comment"
+                      value={editActivity.comment}
+                      onChange={(e) => setEditActivity({ ...editActivity, comment: e.target.value })}
+                      className="bg-background border-border resize-none min-h-20"
+                    />
+                    <Input
+                      type="date"
+                      value={editActivity.date}
+                      onChange={(e) => setEditActivity({ ...editActivity, date: e.target.value })}
+                      className="bg-background border-border"
+                    />
+                    <div className="flex gap-2">
+                      <Button onClick={() => saveEditActivity(log.id)} size="sm" className="flex-1">
+                        Save
+                      </Button>
+                      <Button onClick={cancelEditActivity} size="sm" variant="outline" className="flex-1">
+                        Cancel
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <p className="text-sm text-foreground">{log.comment}</p>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        {new Date(log.date).toLocaleDateString("en-US", {
+                          month: "short",
+                          day: "numeric",
+                          year: "numeric",
+                        })}
+                      </p>
+                    </div>
+                    <div className="flex gap-1">
+                      <Button
+                        onClick={() => startEditActivity(log)}
+                        size="sm"
+                        variant="ghost"
+                        className="h-8 w-8 p-0"
+                      >
+                        <Pencil className="h-3.5 w-3.5" />
+                      </Button>
+                      <Button
+                        onClick={() => deleteActivity(log.id)}
+                        size="sm"
+                        variant="ghost"
+                        className="h-8 w-8 p-0 text-destructive hover:text-destructive"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+                  </div>
+                )}
               </div>
             ))}
           </div>

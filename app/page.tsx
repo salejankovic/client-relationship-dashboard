@@ -22,7 +22,7 @@ export default function ClientDashboard() {
 
   // Fetch data from Supabase
   const { clients, loading: clientsLoading, addClient, updateClient, deleteClient } = useClients()
-  const { products, productConfigs, loading: productsLoading, addProduct, updateProductColors, deleteProduct } =
+  const { products, productConfigs, loading: productsLoading, addProduct, updateProductColors, updateProductName, deleteProduct } =
     useProducts()
   const { teamMembers, loading: teamMembersLoading } = useTeamMembers()
 
@@ -135,6 +135,7 @@ export default function ClientDashboard() {
         onAddProduct={addProduct}
         onDeleteProduct={deleteProduct}
         onUpdateColors={updateProductColors}
+        onUpdateName={updateProductName}
       />
     </div>
   )

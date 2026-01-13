@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
-import { Plus, X, Palette } from "lucide-react"
+import { Plus, X, Palette, Pencil } from "lucide-react"
 import type { Product, ProductConfig } from "@/lib/types"
 
 interface ProductManagerModalProps {
@@ -16,6 +16,7 @@ interface ProductManagerModalProps {
   onAddProduct: (name: string, bgColor: string, textColor: string) => void
   onDeleteProduct: (name: string) => void
   onUpdateColors: (name: string, bgColor: string, textColor: string) => void
+  onUpdateName: (oldName: string, newName: string) => void
 }
 
 export function ProductManagerModal({
@@ -25,11 +26,13 @@ export function ProductManagerModal({
   onAddProduct,
   onDeleteProduct,
   onUpdateColors,
+  onUpdateName,
 }: ProductManagerModalProps) {
   const [newProduct, setNewProduct] = useState("")
   const [newBgColor, setNewBgColor] = useState("#3b82f6")
   const [newTextColor, setNewTextColor] = useState("#ffffff")
   const [editingProduct, setEditingProduct] = useState<string | null>(null)
+  const [editName, setEditName] = useState("")
   const [editBgColor, setEditBgColor] = useState("")
   const [editTextColor, setEditTextColor] = useState("")
 
@@ -44,19 +47,26 @@ export function ProductManagerModal({
 
   const startEditing = (config: ProductConfig) => {
     setEditingProduct(config.name)
+    setEditName(config.name)
     setEditBgColor(config.bgColor)
     setEditTextColor(config.textColor)
   }
 
-  const saveColors = () => {
+  const saveChanges = () => {
     if (editingProduct) {
-      onUpdateColors(editingProduct, editBgColor, editTextColor)
+      // Update name if changed
+      if (editName.trim() && editName !== editingProduct) {
+        onUpdateName(editingProduct, editName.trim())
+      }
+      // Update colors
+      onUpdateColors(editName.trim() || editingProduct, editBgColor, editTextColor)
       setEditingProduct(null)
     }
   }
 
   const cancelEdit = () => {
     setEditingProduct(null)
+    setEditName("")
   }
 
   return (
@@ -76,7 +86,15 @@ export function ProductManagerModal({
                   {editingProduct === config.name ? (
                     // Edit mode
                     <div className="flex-1 space-y-3">
-                      <div className="font-medium">{config.name}</div>
+                      <div className="space-y-2">
+                        <Label htmlFor="editName" className="text-xs">Product Name</Label>
+                        <Input
+                          id="editName"
+                          value={editName}
+                          onChange={(e) => setEditName(e.target.value)}
+                          className="font-medium"
+                        />
+                      </div>
                       <div className="grid grid-cols-2 gap-3">
                         <div className="space-y-2">
                           <Label htmlFor={`edit-bg-${config.name}`} className="text-xs">
@@ -122,8 +140,8 @@ export function ProductManagerModal({
                         </div>
                       </div>
                       <div className="flex gap-2">
-                        <Button size="sm" onClick={saveColors}>
-                          Save Colors
+                        <Button size="sm" onClick={saveChanges}>
+                          Save Changes
                         </Button>
                         <Button size="sm" variant="outline" onClick={cancelEdit}>
                           Cancel
@@ -147,8 +165,8 @@ export function ProductManagerModal({
                         BG: {config.bgColor} | Text: {config.textColor}
                       </div>
                       <Button size="sm" variant="ghost" onClick={() => startEditing(config)}>
-                        <Palette className="h-4 w-4 mr-1" />
-                        Edit Colors
+                        <Pencil className="h-4 w-4 mr-1" />
+                        Edit
                       </Button>
                       <Button
                         size="sm"
