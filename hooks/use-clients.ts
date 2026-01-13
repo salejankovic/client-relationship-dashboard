@@ -69,6 +69,10 @@ export function useClients() {
   const addClient = async (client: Client) => {
     try {
       console.log('Attempting to insert client into database:', client)
+
+      // Optimistic update - add to local state immediately
+      setClients((prevClients) => [...prevClients, client])
+
       const { data, error } = await supabase.from("clients").insert([{
         id: client.id,
         name: client.name,
@@ -96,11 +100,13 @@ export function useClients() {
           hint: error.hint,
           code: error.code,
         })
+        // Rollback optimistic update on error
+        await fetchClients()
         throw error
       }
 
       console.log('Client inserted successfully, data:', data)
-      await fetchClients()
+      // Real-time subscription will handle the refresh automatically
     } catch (err) {
       console.error("Error adding client:", err)
       throw err
@@ -110,6 +116,11 @@ export function useClients() {
   // Update client
   const updateClient = async (client: Client) => {
     try {
+      // Optimistic update - update local state immediately
+      setClients((prevClients) =>
+        prevClients.map((c) => (c.id === client.id ? client : c))
+      )
+
       const { error } = await supabase
         .from("clients")
         .update({
@@ -132,8 +143,12 @@ export function useClients() {
         })
         .eq("id", client.id)
 
-      if (error) throw error
-      await fetchClients()
+      if (error) {
+        // Rollback optimistic update on error
+        await fetchClients()
+        throw error
+      }
+      // Real-time subscription will handle the refresh automatically
     } catch (err) {
       console.error("Error updating client:", err)
       throw err
@@ -143,10 +158,17 @@ export function useClients() {
   // Delete client
   const deleteClient = async (clientId: string) => {
     try {
+      // Optimistic update - remove from local state immediately
+      setClients((prevClients) => prevClients.filter((c) => c.id !== clientId))
+
       const { error } = await supabase.from("clients").delete().eq("id", clientId)
 
-      if (error) throw error
-      await fetchClients()
+      if (error) {
+        // Rollback optimistic update on error
+        await fetchClients()
+        throw error
+      }
+      // Real-time subscription will handle the refresh automatically
     } catch (err) {
       console.error("Error deleting client:", err)
       throw err

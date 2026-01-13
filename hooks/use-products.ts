@@ -50,14 +50,23 @@ export function useProducts() {
 
   const addProduct = async (productName: string, bgColor = "#3b82f6", textColor = "#ffffff") => {
     try {
+      // Optimistic update
+      const newConfig: ProductConfig = { name: productName as Product, bgColor, textColor }
+      setProductConfigs((prev) => [...prev, newConfig])
+      setProducts((prev) => [...prev, productName as Product])
+
       const { error } = await supabase.from("products").insert({
         name: productName,
         bg_color: bgColor,
         text_color: textColor,
       })
 
-      if (error) throw error
-      await fetchProducts()
+      if (error) {
+        // Rollback on error
+        await fetchProducts()
+        throw error
+      }
+      // Real-time subscription will handle the refresh
     } catch (err) {
       console.error("Error adding product:", err)
       throw err
@@ -66,6 +75,11 @@ export function useProducts() {
 
   const updateProductColors = async (productName: string, bgColor: string, textColor: string) => {
     try {
+      // Optimistic update
+      setProductConfigs((prev) =>
+        prev.map((c) => (c.name === productName ? { ...c, bgColor, textColor } : c))
+      )
+
       const { error } = await supabase
         .from("products")
         .update({
@@ -74,8 +88,12 @@ export function useProducts() {
         })
         .eq("name", productName)
 
-      if (error) throw error
-      await fetchProducts()
+      if (error) {
+        // Rollback on error
+        await fetchProducts()
+        throw error
+      }
+      // Real-time subscription will handle the refresh
     } catch (err) {
       console.error("Error updating product colors:", err)
       throw err
@@ -84,13 +102,23 @@ export function useProducts() {
 
   const updateProductName = async (oldName: string, newName: string) => {
     try {
+      // Optimistic update
+      setProductConfigs((prev) =>
+        prev.map((c) => (c.name === oldName ? { ...c, name: newName as Product } : c))
+      )
+      setProducts((prev) => prev.map((p) => (p === oldName ? (newName as Product) : p)))
+
       const { error } = await supabase
         .from("products")
         .update({ name: newName })
         .eq("name", oldName)
 
-      if (error) throw error
-      await fetchProducts()
+      if (error) {
+        // Rollback on error
+        await fetchProducts()
+        throw error
+      }
+      // Real-time subscription will handle the refresh
     } catch (err) {
       console.error("Error updating product name:", err)
       throw err
@@ -99,10 +127,18 @@ export function useProducts() {
 
   const deleteProduct = async (productName: string) => {
     try {
+      // Optimistic update
+      setProductConfigs((prev) => prev.filter((c) => c.name !== productName))
+      setProducts((prev) => prev.filter((p) => p !== productName))
+
       const { error } = await supabase.from("products").delete().eq("name", productName)
 
-      if (error) throw error
-      await fetchProducts()
+      if (error) {
+        // Rollback on error
+        await fetchProducts()
+        throw error
+      }
+      // Real-time subscription will handle the refresh
     } catch (err) {
       console.error("Error deleting product:", err)
       throw err
