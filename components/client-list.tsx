@@ -330,17 +330,7 @@ export function ClientList({
                 </div>
               )}
               <div className="flex-1 min-w-0">
-                <div className="flex items-start justify-between mb-1">
-                  <h3 className="font-semibold text-foreground truncate">{client.name}</h3>
-                  <div
-                    className={cn(
-                      "h-2 w-2 rounded-full mt-1.5 flex-shrink-0",
-                      client.status === "active" && "bg-green-500",
-                      client.status === "pending" && "bg-yellow-500",
-                      client.status === "inactive" && "bg-gray-500",
-                    )}
-                  />
-                </div>
+                <h3 className="font-semibold text-foreground truncate mb-1">{client.name}</h3>
                 {client.assignedTo && (
                   <p className="text-xs text-muted-foreground mb-1">Assigned to: {client.assignedTo}</p>
                 )}
@@ -378,6 +368,11 @@ export function ClientList({
             {client.nextAction && (
               <p className="text-xs text-muted-foreground line-clamp-1 mb-1">
                 <span className="font-medium">Next:</span> {client.nextAction}
+                {client.nextActionDate && (
+                  <span className="ml-1 text-muted-foreground/70">
+                    (due: {new Date(client.nextActionDate).toLocaleDateString("en-US", { month: "short", day: "numeric" })})
+                  </span>
+                )}
               </p>
             )}
 

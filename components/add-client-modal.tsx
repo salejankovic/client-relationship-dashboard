@@ -29,7 +29,6 @@ export function AddClientModal({ open, onOpenChange, onAddClient, availableProdu
   const [formData, setFormData] = useState({
     name: "",
     category: "Media" as ClientCategory,
-    status: "pending" as ClientStatus,
     website: "",
     city: "",
     country: "",
@@ -88,7 +87,7 @@ export function AddClientModal({ open, onOpenChange, onAddClient, availableProdu
         id: Date.now().toString(),
         name: formData.name,
         category: formData.category,
-        status: formData.status,
+        status: "active",
         products: formData.products,
         website: formData.website || undefined,
         city: formData.city || undefined,
@@ -127,7 +126,6 @@ export function AddClientModal({ open, onOpenChange, onAddClient, availableProdu
       setFormData({
         name: "",
         category: "Media",
-        status: "pending",
         website: "",
         city: "",
         country: "",
@@ -201,47 +199,27 @@ export function AddClientModal({ open, onOpenChange, onAddClient, availableProdu
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label>Branch</Label>
-              <div className="flex gap-2">
-                <Button
-                  type="button"
-                  variant={formData.category === "Media" ? "default" : "outline"}
-                  size="sm"
-                  onClick={() => setFormData({ ...formData, category: "Media" })}
-                  className="flex-1"
-                >
-                  Media
-                </Button>
-                <Button
-                  type="button"
-                  variant={formData.category === "Sport" ? "default" : "outline"}
-                  size="sm"
-                  onClick={() => setFormData({ ...formData, category: "Sport" })}
-                  className="flex-1"
-                >
-                  Sport
-                </Button>
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <Label>Status</Label>
-              <div className="flex gap-2">
-                {(["active", "pending", "inactive"] as ClientStatus[]).map((status) => (
-                  <Button
-                    key={status}
-                    type="button"
-                    variant={formData.status === status ? "default" : "outline"}
-                    size="sm"
-                    onClick={() => setFormData({ ...formData, status })}
-                    className="flex-1 capitalize"
-                  >
-                    {status}
-                  </Button>
-                ))}
-              </div>
+          <div className="space-y-2">
+            <Label>Branch</Label>
+            <div className="flex gap-2">
+              <Button
+                type="button"
+                variant={formData.category === "Media" ? "default" : "outline"}
+                size="sm"
+                onClick={() => setFormData({ ...formData, category: "Media" })}
+                className="flex-1"
+              >
+                Media
+              </Button>
+              <Button
+                type="button"
+                variant={formData.category === "Sport" ? "default" : "outline"}
+                size="sm"
+                onClick={() => setFormData({ ...formData, category: "Sport" })}
+                className="flex-1"
+              >
+                Sport
+              </Button>
             </div>
           </div>
 

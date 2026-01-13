@@ -18,6 +18,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
 import {
   Select,
   SelectContent,
@@ -54,6 +55,7 @@ export function ClientProfile({ client, onUpdate, onDelete, teamMembers, availab
   const [editActivity, setEditActivity] = useState({ comment: "", date: "" })
   const [showAddContact, setShowAddContact] = useState(false)
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
+  const [showLocationDialog, setShowLocationDialog] = useState(false)
   const [logoFile, setLogoFile] = useState<File | null>(null)
 
   // Sync local state when client changes
@@ -273,37 +275,26 @@ export function ClientProfile({ client, onUpdate, onDelete, teamMembers, availab
                   </a>
                 )}
               </div>
-              {(city || country) && (
-                <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                  <MapPin className="h-3.5 w-3.5" />
-                  <span>
-                    {city && country ? `${city}, ${country}` : city || country}
-                  </span>
-                </div>
-              )}
+              <button
+                onClick={() => setShowLocationDialog(true)}
+                className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors"
+              >
+                <MapPin className="h-3.5 w-3.5" />
+                <span>
+                  {(city || country) ? (city && country ? `${city}, ${country}` : city || country) : "Add location"}
+                </span>
+              </button>
             </div>
           </div>
-          <Button variant="destructive" size="sm" onClick={() => setShowDeleteDialog(true)}>
-            <Trash2 className="h-4 w-4 mr-2" />
-            Delete Client
-          </Button>
-        </div>
-
-        <div className="grid gap-4 md:grid-cols-3 mb-6">
-          <Card className="bg-card border-border">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base flex items-center gap-2">
-                <User className="h-4 w-4" />
-                Responsible Person
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2">
+              <User className="h-4 w-4 text-muted-foreground" />
               <Select value={assignedTo} onValueChange={(value) => {
                 setAssignedTo(value)
                 onUpdate({ ...client, assignedTo: value })
               }}>
-                <SelectTrigger className="bg-background border-border">
-                  <SelectValue placeholder="Select team member" />
+                <SelectTrigger className="w-[180px] h-8">
+                  <SelectValue placeholder="Assign to..." />
                 </SelectTrigger>
                 <SelectContent>
                   {teamMembers.map((member) => (
@@ -313,35 +304,15 @@ export function ClientProfile({ client, onUpdate, onDelete, teamMembers, availab
                   ))}
                 </SelectContent>
               </Select>
-            </CardContent>
-          </Card>
+            </div>
+            <Button variant="destructive" size="sm" onClick={() => setShowDeleteDialog(true)}>
+              <Trash2 className="h-4 w-4 mr-2" />
+              Delete Client
+            </Button>
+          </div>
+        </div>
 
-          <Card className="bg-card border-border">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base flex items-center gap-2">
-                <MapPin className="h-4 w-4" />
-                Location
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-2">
-              <Input
-                placeholder="City"
-                value={city}
-                onChange={(e) => setCity(e.target.value)}
-                onBlur={saveLocation}
-                className="bg-background border-border"
-              />
-              <Input
-                placeholder="Country"
-                value={country}
-                onChange={(e) => setCountry(e.target.value)}
-                onBlur={saveLocation}
-                className="bg-background border-border"
-              />
-            </CardContent>
-          </Card>
-
-          <Card className="bg-card border-border">
+        <Card className="bg-card border-border mb-6">
             <CardHeader className="pb-3">
               <CardTitle className="text-base">Products</CardTitle>
             </CardHeader>
@@ -730,6 +701,45 @@ export function ClientProfile({ client, onUpdate, onDelete, teamMembers, availab
           </div>
         </CardContent>
       </Card>
+
+      <Dialog open={showLocationDialog} onOpenChange={setShowLocationDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Location</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">City</label>
+              <Input
+                placeholder="Enter city"
+                value={city}
+                onChange={(e) => setCity(e.target.value)}
+                className="bg-background border-border"
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Country</label>
+              <Input
+                placeholder="Enter country"
+                value={country}
+                onChange={(e) => setCountry(e.target.value)}
+                className="bg-background border-border"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowLocationDialog(false)}>
+              Cancel
+            </Button>
+            <Button onClick={() => {
+              saveLocation()
+              setShowLocationDialog(false)
+            }}>
+              Save
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
         <AlertDialogContent>
