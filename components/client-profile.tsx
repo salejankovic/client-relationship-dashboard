@@ -311,6 +311,7 @@ export function ClientProfile({ client, onUpdate, onDelete, teamMembers, availab
             </Button>
           </div>
         </div>
+      </div>
 
       <Card className="bg-card border-border mb-6">
         <CardHeader className="pb-3">
