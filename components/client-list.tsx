@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Checkbox } from "@/components/ui/checkbox"
 import type { Client, ClientCategory, Product, ProductConfig } from "@/lib/types"
 import { cn } from "@/lib/utils"
 
@@ -42,6 +43,7 @@ export function ClientList({
   const [countryFilter, setCountryFilter] = useState<string | "All">("All")
   const [cityFilter, setCityFilter] = useState<string | "All">("All")
   const [upsellFilter, setUpsellFilter] = useState<Product[]>([])
+  const [hasActiveTodosFilter, setHasActiveTodosFilter] = useState(false)
 
   // Get unique countries and cities
   const uniqueCountries = Array.from(new Set(clients.map((c) => c.country).filter(Boolean))) as string[]
@@ -55,7 +57,8 @@ export function ClientList({
     const matchesCountry = countryFilter === "All" || client.country === countryFilter
     const matchesCity = cityFilter === "All" || client.city === cityFilter
     const matchesUpsell = upsellFilter.length === 0 || upsellFilter.some((p) => (client.upsellStrategy || []).includes(p))
-    return matchesSearch && matchesBranch && matchesProducts && matchesResponsible && matchesCountry && matchesCity && matchesUpsell
+    const matchesActiveTodos = !hasActiveTodosFilter || (client.todos && client.todos.some((todo) => !todo.completed))
+    return matchesSearch && matchesBranch && matchesProducts && matchesResponsible && matchesCountry && matchesCity && matchesUpsell && matchesActiveTodos
   })
 
   return (
@@ -277,6 +280,23 @@ export function ClientList({
                   >
                     Pchella
                   </Button>
+                </div>
+              </div>
+
+              {/* Has Active To-Dos Filter */}
+              <div>
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="active-todos"
+                    checked={hasActiveTodosFilter}
+                    onCheckedChange={(checked) => setHasActiveTodosFilter(checked === true)}
+                  />
+                  <label
+                    htmlFor="active-todos"
+                    className="text-xs font-semibold text-muted-foreground cursor-pointer"
+                  >
+                    HAS ACTIVE TO-DOS
+                  </label>
                 </div>
               </div>
             </div>
