@@ -4,6 +4,7 @@ import { useEffect, useState } from "react"
 import { useParams, useRouter } from "next/navigation"
 import { useProspects, useProspectComments } from "@/hooks/use-prospects"
 import { useEmailDrafts } from "@/hooks/use-email-drafts"
+import { useIntelligence } from "@/hooks/use-intelligence"
 import { EmailComposerModal } from "@/components/email-composer-modal"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -16,7 +17,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { ArrowLeft, Loader2, Save, Trash2, MessageSquare, Mail, ExternalLink } from "lucide-react"
+import { ArrowLeft, Loader2, Save, Trash2, MessageSquare, Mail, ExternalLink, Lightbulb } from "lucide-react"
 import Link from "next/link"
 import type { Prospect, ProspectStatus, ProductType, ProspectType } from "@/lib/types"
 
@@ -27,6 +28,7 @@ export default function ProspectDetailPage() {
   const { prospects, loading, updateProspect, deleteProspect, archiveProspect } = useProspects()
   const { comments, loading: commentsLoading, addComment } = useProspectComments(prospectId)
   const { drafts, loading: draftsLoading, addDraft, deleteDraft } = useEmailDrafts(prospectId)
+  const { intelligenceItems, loading: intelligenceLoading, dismissItem } = useIntelligence(prospectId)
 
   const [prospect, setProspect] = useState<Prospect | null>(null)
   const [newComment, setNewComment] = useState("")
@@ -261,6 +263,94 @@ export default function ProspectDetailPage() {
               onChange={(e) => setProspect({ ...prospect, nextActionDate: e.target.value })}
             />
           </div>
+        </CardContent>
+      </Card>
+
+      {/* Intelligence Feed */}
+      <Card className="mb-6">
+        <CardHeader>
+          <CardTitle className="text-lg flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Lightbulb className="h-5 w-5" />
+              Intelligence
+            </div>
+            <Link href="/acquisition/intelligence">
+              <Button size="sm" variant="outline">
+                View All
+              </Button>
+            </Link>
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {intelligenceLoading ? (
+            <div className="flex justify-center py-4">
+              <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+            </div>
+          ) : intelligenceItems.filter(i => !i.dismissed).length === 0 ? (
+            <p className="text-sm text-muted-foreground text-center py-4">
+              No intelligence items for this prospect yet.
+            </p>
+          ) : (
+            <div className="space-y-3">
+              {intelligenceItems.filter(i => !i.dismissed).slice(0, 3).map((item) => (
+                <div key={item.id} className="border rounded-lg p-4 space-y-2">
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="text-xs px-2 py-0.5 rounded bg-secondary">
+                          {item.sourceType}
+                        </span>
+                        {item.relevanceScore !== undefined && (
+                          <span className="text-xs px-2 py-0.5 rounded bg-secondary">
+                            {item.relevanceScore}% relevant
+                          </span>
+                        )}
+                      </div>
+                      <h4 className="font-medium text-sm">{item.title}</h4>
+                      {item.description && (
+                        <p className="text-sm text-muted-foreground mt-1 line-clamp-2">
+                          {item.description}
+                        </p>
+                      )}
+                    </div>
+                    {item.url && (
+                      <a href={item.url} target="_blank" rel="noopener noreferrer">
+                        <Button variant="ghost" size="sm">
+                          <ExternalLink className="h-4 w-4" />
+                        </Button>
+                      </a>
+                    )}
+                  </div>
+
+                  {/* AI Tip */}
+                  {item.aiTip && (
+                    <div className="bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-lg p-3 mt-2">
+                      <div className="flex items-start gap-2">
+                        <Lightbulb className="h-4 w-4 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" />
+                        <p className="text-sm text-blue-800 dark:text-blue-200">{item.aiTip}</p>
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="flex items-center justify-between text-xs text-muted-foreground pt-2">
+                    <span>
+                      {item.publishedAt
+                        ? new Date(item.publishedAt).toLocaleDateString()
+                        : new Date(item.createdAt).toLocaleDateString()}
+                    </span>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => dismissItem(item.id)}
+                      className="h-auto py-1"
+                    >
+                      Dismiss
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </CardContent>
       </Card>
 

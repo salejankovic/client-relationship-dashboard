@@ -4,7 +4,7 @@ import { useState } from "react"
 import { useProspects } from "@/hooks/use-prospects"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Plus, Search, Loader2, ArrowLeft } from "lucide-react"
+import { Plus, Search, Loader2, ArrowLeft, Lightbulb } from "lucide-react"
 import Link from "next/link"
 import type { Prospect, ProspectStatus } from "@/lib/types"
 
@@ -69,12 +69,20 @@ export default function AcquisitionPage() {
             <p className="text-muted-foreground mt-1">Manage your sales prospects and deals</p>
           </div>
         </div>
-        <Link href="/acquisition/prospects/new">
-          <Button>
-            <Plus className="h-4 w-4 mr-2" />
-            Add Prospect
-          </Button>
-        </Link>
+        <div className="flex gap-2">
+          <Link href="/acquisition/intelligence">
+            <Button variant="outline">
+              <Lightbulb className="h-4 w-4 mr-2" />
+              Intelligence
+            </Button>
+          </Link>
+          <Link href="/acquisition/prospects/new">
+            <Button>
+              <Plus className="h-4 w-4 mr-2" />
+              Add Prospect
+            </Button>
+          </Link>
+        </div>
       </div>
 
       {/* Filters */}
