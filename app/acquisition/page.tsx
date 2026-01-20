@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { useProspects } from "@/hooks/use-prospects";
 import { ProductBadge } from "@/components/product-badge";
+import { AIInsightsCard } from "@/components/ai-insights-card";
 import type { Prospect } from "@/lib/types";
 import {
   Sparkles,
@@ -317,10 +318,9 @@ export default function DashboardPage() {
                             {prospect.productType && <ProductBadge product={prospect.productType} />}
                             {prospect.country && <span>{prospect.country}</span>}
                           </div>
-                          <p className="text-xs text-blue-600 mt-1.5 flex items-center gap-1">
-                            <Sparkles className="w-3 h-3" />
-                            AI: "{getAISuggestion(prospect)}"
-                          </p>
+                          <div className="mt-2">
+                            <AIInsightsCard prospect={prospect} compact={true} />
+                          </div>
                         </div>
 
                         <div className="flex items-center gap-2 flex-shrink-0">

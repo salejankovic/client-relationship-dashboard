@@ -6,6 +6,7 @@ import { useProspects, useProspectComments } from "@/hooks/use-prospects"
 import { useEmailDrafts } from "@/hooks/use-email-drafts"
 import { useIntelligence } from "@/hooks/use-intelligence"
 import { EmailComposerModal } from "@/components/email-composer-modal"
+import { AIInsightsCard } from "@/components/ai-insights-card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
@@ -265,6 +266,11 @@ export default function ProspectDetailPage() {
           </div>
         </CardContent>
       </Card>
+
+      {/* AI Insights */}
+      <div className="mb-6">
+        <AIInsightsCard prospect={prospect} />
+      </div>
 
       {/* Intelligence Feed */}
       <Card className="mb-6">

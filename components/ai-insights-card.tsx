@@ -26,110 +26,146 @@ interface AIInsightsCardProps {
   compact?: boolean;
 }
 
-function generateInsight(prospect: Prospect): AIInsight {
-  const commentCount = prospect.comments.length;
-  const daysSince = prospect.daysSinceContact;
-  const lastComment = prospect.comments[0]?.text.toLowerCase() || "";
+interface AIInsightsResponse {
+  insights: string;
+  sentiment: "positive" | "neutral" | "negative";
+  riskLevel: "low" | "medium" | "high";
+  engagementScore: number;
+  recommendedAction: string;
+}
 
-  // Sentiment analysis simulation
-  const positiveWords = ["thanks", "great", "interested", "available", "sure", "yes", "hvala", "super", "odlično", "ideja"];
-  const negativeWords = ["unfortunately", "busy", "later", "can't", "no", "nažalost", "ne možemo", "zauzetosti", "prioritet"];
+async function fetchAIInsights(prospect: Prospect): Promise<AIInsight> {
+  try {
+    const response = await fetch("/api/generate-insights", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        company: prospect.company,
+        daysSinceContact: prospect.daysSinceContact ?? 0,
+        status: prospect.status,
+        dealValue: prospect.dealValue,
+        productType: prospect.productType,
+        nextAction: prospect.nextAction,
+        lastActivity: prospect.lastContactDate,
+      }),
+    });
 
-  let sentimentScore = 0;
-  for (const word of positiveWords) {
-    if (lastComment.includes(word)) sentimentScore += 1;
+    if (!response.ok) {
+      throw new Error("Failed to generate insights");
+    }
+
+    const data: AIInsightsResponse = await response.json();
+
+    // Extract key topics from the AI insights text
+    const topics: string[] = [];
+    const insightsLower = data.insights.toLowerCase();
+    if (prospect.productType) topics.push(prospect.productType);
+    if (insightsLower.includes("meeting") || insightsLower.includes("sastanak")) topics.push("Meeting");
+    if (insightsLower.includes("demo")) topics.push("Demo");
+    if (insightsLower.includes("proposal") || insightsLower.includes("ponuda")) topics.push("Proposal");
+    if (insightsLower.includes("follow-up") || insightsLower.includes("check-in")) topics.push("Follow-up");
+    if (topics.length === 0) topics.push("General Inquiry");
+
+    // Determine best time to reach out
+    const now = new Date();
+    const dayOfWeek = now.getDay();
+    const nextBestTime =
+      dayOfWeek >= 1 && dayOfWeek <= 3
+        ? "Today between 10:00-11:00 or 14:00-15:00"
+        : "Tuesday or Wednesday morning (10:00-11:00)";
+
+    return {
+      id: `ai-${Date.now()}`,
+      prospectId: prospect.id,
+      sentiment: data.sentiment,
+      engagementScore: data.engagementScore,
+      recommendedAction: data.recommendedAction,
+      keyTopics: topics,
+      riskLevel: data.riskLevel,
+      bestTimeToReach: nextBestTime,
+      generatedAt: new Date().toISOString(),
+      aiModel: "gemini-pro",
+    };
+  } catch (error) {
+    console.error("Error fetching AI insights:", error);
+    throw error;
   }
-  for (const word of negativeWords) {
-    if (lastComment.includes(word)) sentimentScore -= 1;
-  }
-
-  const sentiment: "positive" | "neutral" | "negative" =
-    sentimentScore > 0 ? "positive" : sentimentScore < 0 ? "negative" : "neutral";
-
-  // Engagement score calculation
-  let engagementScore = 50;
-  engagementScore += Math.min(commentCount * 8, 30);
-  engagementScore -= Math.min(daysSince * 0.5, 30);
-  if (prospect.status === "Hot") engagementScore += 15;
-  if (prospect.status === "Cold") engagementScore -= 15;
-  engagementScore = Math.max(0, Math.min(100, engagementScore));
-
-  // Risk level
-  const riskLevel: "low" | "medium" | "high" =
-    daysSince > 60 || sentiment === "negative"
-      ? "high"
-      : daysSince > 30 || sentiment === "neutral"
-        ? "medium"
-        : "low";
-
-  // Recommended actions based on analysis
-  const actions = {
-    high_risk_negative: "Send a value-add email with industry insights or case study to re-engage",
-    high_risk_neutral: "Schedule a check-in call to understand current priorities",
-    medium_risk: "Send a brief follow-up with new product updates or relevant news",
-    low_risk_positive: "Strike while hot - propose next concrete step (demo, meeting)",
-    low_risk_neutral: "Continue nurturing with valuable content",
-  };
-
-  let recommendedAction: string;
-  if (riskLevel === "high" && sentiment === "negative") {
-    recommendedAction = actions.high_risk_negative;
-  } else if (riskLevel === "high") {
-    recommendedAction = actions.high_risk_neutral;
-  } else if (riskLevel === "medium") {
-    recommendedAction = actions.medium_risk;
-  } else if (sentiment === "positive") {
-    recommendedAction = actions.low_risk_positive;
-  } else {
-    recommendedAction = actions.low_risk_neutral;
-  }
-
-  // Key topics extraction
-  const topics: string[] = [];
-  if (prospect.product === "Mobile app") topics.push("Mobile Development");
-  if (lastComment.includes("sastanak") || lastComment.includes("meeting")) topics.push("Meeting Scheduled");
-  if (lastComment.includes("ponuda") || lastComment.includes("proposal")) topics.push("Proposal Sent");
-  if (lastComment.includes("demo")) topics.push("Demo Interest");
-  if (lastComment.includes("budget") || lastComment.includes("prioritet")) topics.push("Budget Discussion");
-  if (topics.length === 0) topics.push("General Inquiry");
-
-  // Best time to reach out
-  const now = new Date();
-  const dayOfWeek = now.getDay();
-  const nextBestTime =
-    dayOfWeek >= 1 && dayOfWeek <= 3
-      ? "Today between 10:00-11:00 or 14:00-15:00"
-      : "Tuesday or Wednesday morning (10:00-11:00)";
-
-  return {
-    sentiment,
-    engagementScore: Math.round(engagementScore),
-    recommendedAction,
-    keyTopics: topics,
-    riskLevel,
-    nextBestTime,
-  };
 }
 
 export function AIInsightsCard({ prospect, compact = false }: AIInsightsCardProps) {
   const [insight, setInsight] = useState<AIInsight | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [hasGenerated, setHasGenerated] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const generateInsights = () => {
+  const generateInsights = async () => {
     setIsLoading(true);
-    setTimeout(() => {
-      setInsight(generateInsight(prospect));
-      setIsLoading(false);
+    setError(null);
+    try {
+      const insights = await fetchAIInsights(prospect);
+      setInsight(insights);
       setHasGenerated(true);
-    }, 1500);
+    } catch (err) {
+      console.error("Error generating insights:", err);
+      setError("Failed to generate insights. Please try again.");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
+  // Initial load
   useEffect(() => {
     if (!hasGenerated) {
       generateInsights();
     }
   }, [prospect.id]);
+
+  // Auto-refresh every 5 minutes when page is visible
+  useEffect(() => {
+    if (!hasGenerated || compact) return; // Skip auto-refresh for compact mode
+
+    const AUTO_REFRESH_INTERVAL = 5 * 60 * 1000; // 5 minutes
+    let intervalId: NodeJS.Timeout | null = null;
+
+    const startAutoRefresh = () => {
+      if (intervalId) return; // Already running
+      intervalId = setInterval(() => {
+        if (document.visibilityState === "visible") {
+          generateInsights();
+        }
+      }, AUTO_REFRESH_INTERVAL);
+    };
+
+    const stopAutoRefresh = () => {
+      if (intervalId) {
+        clearInterval(intervalId);
+        intervalId = null;
+      }
+    };
+
+    // Handle visibility change
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        startAutoRefresh();
+      } else {
+        stopAutoRefresh();
+      }
+    };
+
+    // Start if page is visible
+    if (document.visibilityState === "visible") {
+      startAutoRefresh();
+    }
+
+    // Listen for visibility changes
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    // Cleanup
+    return () => {
+      stopAutoRefresh();
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, [hasGenerated, compact, prospect.id]);
 
   const SentimentIcon = insight?.sentiment === "positive" ? TrendingUp : insight?.sentiment === "negative" ? TrendingDown : Minus;
   const sentimentColor = insight?.sentiment === "positive" ? "text-green-600" : insight?.sentiment === "negative" ? "text-red-600" : "text-yellow-600";
@@ -142,6 +178,13 @@ export function AIInsightsCard({ prospect, compact = false }: AIInsightsCardProp
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <Loader2 className="w-4 h-4 animate-spin text-blue-600" />
               Analyzing prospect...
+            </div>
+          ) : error ? (
+            <div className="text-center py-2">
+              <p className="text-xs text-red-600 mb-2">{error}</p>
+              <Button size="sm" variant="outline" onClick={generateInsights}>
+                Retry
+              </Button>
             </div>
           ) : insight ? (
             <div className="space-y-3">
@@ -189,7 +232,14 @@ export function AIInsightsCard({ prospect, compact = false }: AIInsightsCardProp
         {isLoading ? (
           <div className="flex flex-col items-center justify-center py-8 space-y-3">
             <Loader2 className="w-6 h-6 text-blue-600 animate-spin" />
-            <p className="text-sm text-muted-foreground">Analyzing communication patterns...</p>
+            <p className="text-sm text-muted-foreground">Analyzing communication patterns with AI...</p>
+          </div>
+        ) : error ? (
+          <div className="text-center py-6">
+            <p className="text-sm text-red-600 mb-3">{error}</p>
+            <Button size="sm" onClick={generateInsights}>
+              Try Again
+            </Button>
           </div>
         ) : insight ? (
           <>
@@ -251,19 +301,21 @@ export function AIInsightsCard({ prospect, compact = false }: AIInsightsCardProp
                 <Clock className="w-4 h-4 text-blue-600" />
                 <span className="text-xs text-muted-foreground">Best Time to Reach Out</span>
               </div>
-              <p className="text-sm">{insight.nextBestTime}</p>
+              <p className="text-sm">{insight.bestTimeToReach}</p>
             </div>
 
-            <div>
-              <p className="text-xs text-muted-foreground mb-2">Key Topics Identified</p>
-              <div className="flex flex-wrap gap-1">
-                {insight.keyTopics.map((topic, i) => (
-                  <Badge key={i} variant="secondary" className="text-xs">
-                    {topic}
-                  </Badge>
-                ))}
+            {insight.keyTopics && insight.keyTopics.length > 0 && (
+              <div>
+                <p className="text-xs text-muted-foreground mb-2">Key Topics Identified</p>
+                <div className="flex flex-wrap gap-1">
+                  {insight.keyTopics.map((topic, i) => (
+                    <Badge key={i} variant="secondary" className="text-xs">
+                      {topic}
+                    </Badge>
+                  ))}
+                </div>
               </div>
-            </div>
+            )}
           </>
         ) : null}
       </CardContent>
