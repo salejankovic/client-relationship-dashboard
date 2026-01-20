@@ -30,28 +30,6 @@ export const PRODUCT_COLORS: Record<Product, string> = {
   CMS: "bg-[var(--product-cms)] text-white",
 }
 
-// Product colors for client list (legacy, keeping for backwards compatibility)
-export const getProductColor = (product: string): string => {
-  switch (product) {
-    case "Mobile App":
-      return "bg-red-500 text-white"
-    case "Litteraworks":
-      return "bg-gray-700 text-white"
-    case "Pchella":
-      return "bg-yellow-500 text-black"
-    case "TTS":
-      return "bg-yellow-500 text-black"
-    case "Komentari":
-      return "bg-gray-700 text-white"
-    case "CMS":
-      return "bg-gray-700 text-white"
-    case "e-Kiosk":
-      return "bg-gray-700 text-white"
-    default:
-      return "bg-gray-500 text-white"
-  }
-}
-
 // LocalStorage keys
 export const STORAGE_KEYS = {
   CLIENTS: "appworks-clients",
