@@ -40,21 +40,44 @@ export function EmailComposerModal({
   const handleGenerate = async () => {
     setIsGenerating(true)
 
-    // Simulate AI generation delay
-    await new Promise((resolve) => setTimeout(resolve, 800))
+    try {
+      const response = await fetch("/api/generate-email", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          prospectCompany,
+          tone,
+          goal,
+          language,
+          context,
+        }),
+      })
 
-    const { subject: generatedSubject, body: generatedBody } = generateEmailContent(
-      prospectCompany,
-      tone,
-      goal,
-      language,
-      context
-    )
+      if (!response.ok) {
+        throw new Error("Failed to generate email")
+      }
 
-    setSubject(generatedSubject)
-    setBody(generatedBody)
-    setHasGenerated(true)
-    setIsGenerating(false)
+      const { subject: generatedSubject, body: generatedBody } = await response.json()
+
+      setSubject(generatedSubject)
+      setBody(generatedBody)
+      setHasGenerated(true)
+    } catch (error) {
+      console.error("Error generating email:", error)
+      // Fallback to template generation
+      const { subject: generatedSubject, body: generatedBody } = generateEmailContent(
+        prospectCompany,
+        tone,
+        goal,
+        language,
+        context
+      )
+      setSubject(generatedSubject)
+      setBody(generatedBody)
+      setHasGenerated(true)
+    } finally {
+      setIsGenerating(false)
+    }
   }
 
   const handleSave = async () => {
@@ -67,7 +90,7 @@ export function EmailComposerModal({
         tone,
         goal,
         language,
-        aiModel: "mock",
+        aiModel: "gemini-pro",
       })
 
       // Reset form
