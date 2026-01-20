@@ -1,46 +1,156 @@
-"use client"
+"use client";
 
-import { useState } from "react"
-import { useProspects } from "@/hooks/use-prospects"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Plus, Search, Loader2, ArrowLeft, Lightbulb, Upload } from "lucide-react"
-import Link from "next/link"
-import type { Prospect, ProspectStatus } from "@/lib/types"
+import { useState, useMemo } from "react";
+import Link from "next/link";
+import { AppSidebar } from "@/components/app-sidebar";
+import { MobileNav } from "@/components/mobile-nav";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { useProspects } from "@/hooks/use-prospects";
+import { ProductBadge } from "@/components/product-badge";
+import type { Prospect } from "@/lib/types";
+import {
+  Sparkles,
+  Users,
+  Clock,
+  Calendar,
+  X,
+  ChevronRight,
+  Loader2,
+} from "lucide-react";
 
-export default function AcquisitionPage() {
-  const { prospects, loading } = useProspects()
-  const [searchTerm, setSearchTerm] = useState("")
-  const [statusFilter, setStatusFilter] = useState<ProspectStatus | "all">("all")
+function getGreeting() {
+  const hour = new Date().getHours();
+  if (hour < 12) return "Good morning";
+  if (hour < 18) return "Good afternoon";
+  return "Good evening";
+}
 
-  // Filter prospects
-  const filteredProspects = prospects.filter((prospect) => {
-    // Filter out archived prospects
-    if (prospect.archived) return false
+function formatDate() {
+  return new Date().toLocaleDateString("en-US", {
+    weekday: "short",
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  });
+}
 
-    // Status filter
-    if (statusFilter !== "all" && prospect.status !== statusFilter) return false
+type HealthStatus = "Active" | "Cooling" | "Cold" | "Frozen";
 
-    // Search filter
-    if (searchTerm) {
-      const search = searchTerm.toLowerCase()
-      return (
-        prospect.company.toLowerCase().includes(search) ||
-        prospect.contactPerson?.toLowerCase().includes(search) ||
-        prospect.email?.toLowerCase().includes(search)
-      )
+function getHealthStatus(daysSinceContact: number): HealthStatus {
+  if (daysSinceContact <= 7) return "Active";
+  if (daysSinceContact <= 14) return "Cooling";
+  if (daysSinceContact <= 60) return "Cold";
+  return "Frozen";
+}
+
+function getAIBriefing(prospectsList: Prospect[]) {
+  const needsFollowUp = prospectsList.filter((p) => (p.daysSinceContact ?? 0) > 14);
+  const cooling = needsFollowUp.filter((p) => getHealthStatus(p.daysSinceContact ?? 0) === "Cooling");
+  const cold = needsFollowUp.filter((p) => getHealthStatus(p.daysSinceContact ?? 0) === "Cold");
+  const frozen = needsFollowUp.filter((p) => getHealthStatus(p.daysSinceContact ?? 0) === "Frozen");
+
+  const priorityProspect = [...needsFollowUp].sort((a, b) => {
+    const aHealth = getHealthStatus(a.daysSinceContact ?? 0);
+    const bHealth = getHealthStatus(b.daysSinceContact ?? 0);
+    const healthPriority: Record<string, number> = { Cooling: 1, Cold: 2, Frozen: 3, Active: 4 };
+    if (healthPriority[aHealth] !== healthPriority[bHealth]) {
+      return healthPriority[aHealth] - healthPriority[bHealth];
     }
+    return (b.dealValue || 0) - (a.dealValue || 0);
+  })[0];
 
-    return true
-  })
+  let briefing = "";
+  if (cooling.length > 0 || cold.length > 0 || frozen.length > 0) {
+    const parts = [];
+    if (cooling.length > 0) parts.push(`${cooling.length} prospect${cooling.length > 1 ? "s" : ""} cooling off`);
+    if (cold.length > 0) parts.push(`${cold.length} going cold`);
+    if (frozen.length > 0) parts.push(`${frozen.length} frozen`);
+    briefing = `You have ${parts.join(", ")}. `;
 
-  // Group by status
-  const groupedProspects = {
-    Hot: filteredProspects.filter((p) => p.status === "Hot"),
-    Warm: filteredProspects.filter((p) => p.status === "Warm"),
-    Cold: filteredProspects.filter((p) => p.status === "Cold"),
-    Lost: filteredProspects.filter((p) => p.status === "Lost"),
+    if (priorityProspect) {
+      briefing += `${priorityProspect.company} hasn't been contacted in ${priorityProspect.daysSinceContact} days`;
+      if (priorityProspect.dealValue) {
+        briefing += ` (${new Intl.NumberFormat("de-DE", { style: "currency", currency: "EUR", maximumFractionDigits: 0 }).format(priorityProspect.dealValue)} deal)`;
+      }
+      briefing += ". I'd prioritize them - they showed interest.";
+    }
+  } else {
+    briefing = "All prospects are active and engaged. Great job keeping up with follow-ups!";
   }
+
+  return { briefing, priorityProspect, needsFollowUp: needsFollowUp.length };
+}
+
+function getAISuggestion(prospect: Prospect): string {
+  const health = getHealthStatus(prospect.daysSinceContact ?? 0);
+
+  if (health === "Cooling") {
+    return "Gentle follow-up to check on their progress";
+  }
+  if (health === "Cold") {
+    return "Consider re-introduction email with value reminder";
+  }
+  if (health === "Frozen") {
+    return "Very cold - maybe try different contact person or new angle";
+  }
+  return "Keep the conversation going";
+}
+
+function HealthIndicator({ daysSinceContact }: { daysSinceContact?: number }) {
+  const health = getHealthStatus(daysSinceContact ?? 0);
+
+  const statusConfig = {
+    Active: { color: "bg-green-500", tooltip: "Active" },
+    Cooling: { color: "bg-orange-500", tooltip: "Cooling" },
+    Cold: { color: "bg-red-500", tooltip: "Cold" },
+    Frozen: { color: "bg-blue-400", tooltip: "Frozen" },
+  };
+
+  const config = statusConfig[health];
+
+  return (
+    <div className="flex items-center" title={config.tooltip}>
+      <div className={`w-3 h-3 rounded-full ${config.color}`} />
+    </div>
+  );
+}
+
+export default function DashboardPage() {
+  const { prospects, loading } = useProspects();
+  const [briefingDismissed, setBriefingDismissed] = useState(false);
+
+  // Filter out archived prospects
+  const activeProspects = useMemo(() =>
+    prospects.filter(p => !p.archived),
+    [prospects]
+  );
+
+  const { briefing, priorityProspect, needsFollowUp } = useMemo(() =>
+    getAIBriefing(activeProspects),
+    [activeProspects]
+  );
+
+  const followUpQueue = useMemo(() =>
+    [...activeProspects]
+      .filter((p) => (p.daysSinceContact ?? 0) > 7)
+      .sort((a, b) => {
+        const aHealth = getHealthStatus(a.daysSinceContact ?? 0);
+        const bHealth = getHealthStatus(b.daysSinceContact ?? 0);
+        const healthPriority: Record<string, number> = { Cooling: 1, Cold: 2, Frozen: 3, Active: 4 };
+        if (healthPriority[aHealth] !== healthPriority[bHealth]) {
+          return healthPriority[aHealth] - healthPriority[bHealth];
+        }
+        return (b.dealValue || 0) - (a.dealValue || 0);
+      })
+      .slice(0, 5),
+    [activeProspects]
+  );
+
+  const scheduledThisWeek = useMemo(() =>
+    activeProspects.filter((p) => p.nextAction && p.nextAction !== ""),
+    [activeProspects]
+  );
 
   if (loading) {
     return (
@@ -50,170 +160,210 @@ export default function AcquisitionPage() {
           <span className="text-muted-foreground">Loading prospects...</span>
         </div>
       </div>
-    )
+    );
   }
 
   return (
-    <div className="p-8 max-w-7xl mx-auto">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-8">
-        <div className="flex items-center gap-4">
-          <Link href="/">
-            <Button variant="ghost" size="sm">
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              Back to Clients
-            </Button>
-          </Link>
-          <div>
-            <h1 className="text-3xl font-bold text-foreground">Acquisition Pipeline</h1>
-            <p className="text-muted-foreground mt-1">Manage your sales prospects and deals</p>
+    <div className="min-h-screen bg-background">
+      <AppSidebar />
+      <MobileNav />
+
+      <main className="lg:pl-64 pb-20 lg:pb-0">
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          {/* Header */}
+          <div className="flex items-center justify-between mb-8">
+            <div>
+              <h1 className="text-2xl font-semibold text-foreground">
+                {getGreeting()}, Aleksandar
+              </h1>
+              <p className="text-sm text-muted-foreground mt-1">{formatDate()}</p>
+            </div>
           </div>
-        </div>
-        <div className="flex gap-2">
-          <Link href="/acquisition/intelligence">
-            <Button variant="outline">
-              <Lightbulb className="h-4 w-4 mr-2" />
-              Intelligence
-            </Button>
-          </Link>
-          <Link href="/acquisition/import">
-            <Button variant="outline">
-              <Upload className="h-4 w-4 mr-2" />
-              Import CSV
-            </Button>
-          </Link>
-          <Link href="/acquisition/prospects/new">
-            <Button>
-              <Plus className="h-4 w-4 mr-2" />
-              Add Prospect
-            </Button>
-          </Link>
-        </div>
-      </div>
 
-      {/* Filters */}
-      <div className="flex gap-4 mb-6">
-        <div className="relative flex-1 max-w-sm">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Search prospects..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-9"
-          />
-        </div>
-        <div className="flex gap-2">
-          <Button
-            variant={statusFilter === "all" ? "default" : "outline"}
-            size="sm"
-            onClick={() => setStatusFilter("all")}
-          >
-            All ({filteredProspects.length})
-          </Button>
-          <Button
-            variant={statusFilter === "Hot" ? "default" : "outline"}
-            size="sm"
-            onClick={() => setStatusFilter("Hot")}
-          >
-            🔥 Hot ({groupedProspects.Hot.length})
-          </Button>
-          <Button
-            variant={statusFilter === "Warm" ? "default" : "outline"}
-            size="sm"
-            onClick={() => setStatusFilter("Warm")}
-          >
-            ☀️ Warm ({groupedProspects.Warm.length})
-          </Button>
-          <Button
-            variant={statusFilter === "Cold" ? "default" : "outline"}
-            size="sm"
-            onClick={() => setStatusFilter("Cold")}
-          >
-            ❄️ Cold ({groupedProspects.Cold.length})
-          </Button>
-          <Button
-            variant={statusFilter === "Lost" ? "default" : "outline"}
-            size="sm"
-            onClick={() => setStatusFilter("Lost")}
-          >
-            Lost ({groupedProspects.Lost.length})
-          </Button>
-        </div>
-      </div>
-
-      {/* Prospects Grid */}
-      {filteredProspects.length === 0 ? (
-        <div className="text-center py-12 border-2 border-dashed rounded-lg">
-          <h3 className="text-lg font-semibold mb-2">No prospects found</h3>
-          <p className="text-muted-foreground mb-4">
-            {searchTerm ? "Try adjusting your search terms" : "Get started by adding your first prospect"}
-          </p>
-          {!searchTerm && (
-            <Link href="/acquisition/prospects/new">
-              <Button>
-                <Plus className="h-4 w-4 mr-2" />
-                Add Prospect
-              </Button>
-            </Link>
+          {/* AI Daily Briefing */}
+          {!briefingDismissed && needsFollowUp > 0 && (
+            <Card className="mb-6 border-blue-200 bg-blue-50/50">
+              <CardContent className="p-4">
+                <div className="flex items-start gap-3">
+                  <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0">
+                    <Sparkles className="w-4 h-4 text-blue-600" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="text-xs font-medium text-blue-600 uppercase tracking-wide">Today's Focus</span>
+                    </div>
+                    <p className="text-sm text-foreground leading-relaxed">
+                      "{briefing}"
+                    </p>
+                    <div className="flex flex-wrap items-center gap-2 mt-3">
+                      {priorityProspect && (
+                        <Link href={`/acquisition/prospects/${priorityProspect.id}`}>
+                          <Button size="sm" variant="outline" className="h-8 text-xs bg-transparent">
+                            View {priorityProspect.company}
+                          </Button>
+                        </Link>
+                      )}
+                      <Link href="/acquisition/prospects">
+                        <Button
+                          size="sm"
+                          className="h-8 text-xs bg-blue-600 hover:bg-blue-700"
+                        >
+                          <Sparkles className="w-3 h-3 mr-1.5" />
+                          View all prospects
+                        </Button>
+                      </Link>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => setBriefingDismissed(true)}
+                    className="text-muted-foreground hover:text-foreground p-1"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              </CardContent>
+            </Card>
           )}
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filteredProspects.map((prospect) => (
-            <ProspectCard key={prospect.id} prospect={prospect} />
-          ))}
-        </div>
-      )}
-    </div>
-  )
-}
 
-// Prospect Card Component
-function ProspectCard({ prospect }: { prospect: Prospect }) {
-  const statusColors = {
-    Hot: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400",
-    Warm: "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400",
-    Cold: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400",
-    Lost: "bg-gray-100 text-gray-700 dark:bg-gray-900/30 dark:text-gray-400",
-  }
+          {/* Quick Stats */}
+          <div className="grid grid-cols-3 gap-4 mb-8">
+            <Card>
+              <CardContent className="p-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-lg bg-slate-100 flex items-center justify-center">
+                    <Users className="w-5 h-5 text-slate-600" />
+                  </div>
+                  <div>
+                    <p className="text-2xl font-semibold">{activeProspects.length}</p>
+                    <p className="text-xs text-muted-foreground">Prospects</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-lg bg-orange-100 flex items-center justify-center">
+                    <Clock className="w-5 h-5 text-orange-600" />
+                  </div>
+                  <div>
+                    <p className="text-2xl font-semibold">{needsFollowUp}</p>
+                    <p className="text-xs text-muted-foreground">Need Follow-up</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-lg bg-green-100 flex items-center justify-center">
+                    <Calendar className="w-5 h-5 text-green-600" />
+                  </div>
+                  <div>
+                    <p className="text-2xl font-semibold">{scheduledThisWeek.length}</p>
+                    <p className="text-xs text-muted-foreground">Scheduled</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
 
-  return (
-    <Link href={`/acquisition/prospects/${prospect.id}`}>
-      <div className="border rounded-lg p-4 hover:border-primary transition-colors cursor-pointer bg-card">
-        <div className="flex items-start justify-between mb-3">
-          <div className="flex-1">
-            <h3 className="font-semibold text-foreground line-clamp-1">{prospect.company}</h3>
-            {prospect.contactPerson && (
-              <p className="text-sm text-muted-foreground line-clamp-1">{prospect.contactPerson}</p>
+          {/* Follow-up Queue */}
+          <div className="mb-8">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-semibold text-foreground">Follow-up Queue</h2>
+              <div className="flex items-center gap-2">
+                <Link href="/acquisition/prospects">
+                  <Button variant="ghost" size="sm" className="text-xs text-muted-foreground">
+                    View all
+                    <ChevronRight className="w-4 h-4 ml-1" />
+                  </Button>
+                </Link>
+              </div>
+            </div>
+
+            {followUpQueue.length === 0 ? (
+              <Card>
+                <CardContent className="p-8 text-center">
+                  <p className="text-muted-foreground">No prospects need follow-up right now.</p>
+                </CardContent>
+              </Card>
+            ) : (
+              <div className="space-y-3">
+                {followUpQueue.map((prospect) => (
+                  <Card key={prospect.id} className="hover:shadow-sm transition-shadow">
+                    <CardContent className="p-4">
+                      <div className="flex items-start gap-4">
+                        <HealthIndicator daysSinceContact={prospect.daysSinceContact} />
+
+                        <div className="flex-1 min-w-0">
+                          <div className="flex flex-wrap items-center gap-x-2 gap-y-1 mb-1">
+                            <Link
+                              href={`/acquisition/prospects/${prospect.id}`}
+                              className="font-medium text-foreground hover:text-blue-600 transition-colors"
+                            >
+                              {prospect.company}
+                            </Link>
+                            {prospect.contactPerson && (
+                              <span className="text-muted-foreground text-sm">
+                                {prospect.contactPerson}
+                              </span>
+                            )}
+                            <span className="text-sm text-muted-foreground">
+                              {prospect.daysSinceContact}d ago
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-2 text-xs text-muted-foreground mb-2">
+                            {prospect.productType && <ProductBadge product={prospect.productType} />}
+                            {prospect.country && <span>{prospect.country}</span>}
+                          </div>
+                          <p className="text-xs text-blue-600 mt-1.5 flex items-center gap-1">
+                            <Sparkles className="w-3 h-3" />
+                            AI: "{getAISuggestion(prospect)}"
+                          </p>
+                        </div>
+
+                        <div className="flex items-center gap-2 flex-shrink-0">
+                          <Link href={`/acquisition/prospects/${prospect.id}`}>
+                            <Button size="sm" variant="ghost" className="h-8 text-xs">
+                              View
+                            </Button>
+                          </Link>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
             )}
           </div>
-          <span className={`px-2 py-1 rounded text-xs font-medium ${statusColors[prospect.status]}`}>
-            {prospect.status}
-          </span>
+
+          {/* Scheduled This Week */}
+          {scheduledThisWeek.length > 0 && (
+            <div>
+              <h2 className="text-lg font-semibold text-foreground mb-4">Scheduled Actions</h2>
+              <Card>
+                <CardContent className="p-4">
+                  <ul className="space-y-2">
+                    {scheduledThisWeek.map((prospect) => (
+                      <li key={prospect.id} className="flex items-center gap-3 text-sm">
+                        <Calendar className="w-4 h-4 text-muted-foreground" />
+                        <Link
+                          href={`/acquisition/prospects/${prospect.id}`}
+                          className="font-medium hover:text-blue-600 transition-colors"
+                        >
+                          {prospect.company}
+                        </Link>
+                        <span className="text-muted-foreground">- {prospect.nextAction}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </CardContent>
+              </Card>
+            </div>
+          )}
         </div>
-
-        {prospect.dealValue && (
-          <p className="text-sm font-medium text-foreground mb-2">
-            €{prospect.dealValue.toLocaleString()}
-          </p>
-        )}
-
-        {prospect.productType && (
-          <p className="text-xs text-muted-foreground mb-2">{prospect.productType}</p>
-        )}
-
-        {prospect.daysSinceContact !== undefined && (
-          <p className="text-xs text-muted-foreground">
-            Last contact: {prospect.daysSinceContact === 0 ? "Today" : `${prospect.daysSinceContact} days ago`}
-          </p>
-        )}
-
-        {prospect.nextAction && (
-          <p className="text-xs text-muted-foreground mt-2 line-clamp-1">
-            <span className="font-medium">Next:</span> {prospect.nextAction}
-          </p>
-        )}
-      </div>
-    </Link>
-  )
+      </main>
+    </div>
+  );
 }

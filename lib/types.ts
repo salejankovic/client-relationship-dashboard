@@ -55,6 +55,15 @@ export type ProspectStatus = 'Hot' | 'Warm' | 'Cold' | 'Lost'
 export type ProspectType = 'Media' | 'Sports Club' | 'Sports League' | 'Other'
 export type ProductType = 'Mobile app' | 'Website/CMS' | 'LitteraWorks' | 'CMS' | 'Other'
 export type IntelligenceSourceType = 'linkedin' | 'news' | 'sports' | 'job-change' | 'funding' | 'other'
+
+// Constants
+export const PRODUCT_BADGE_COLORS: Record<ProductType, string> = {
+  "Mobile app": "bg-blue-100 text-blue-700",
+  "Website/CMS": "bg-purple-100 text-purple-700",
+  "LitteraWorks": "bg-green-100 text-green-700",
+  "CMS": "bg-cyan-100 text-cyan-700",
+  "Other": "bg-gray-100 text-gray-700",
+}
 export type EmailTone = 'formal' | 'casual' | 'urgent' | 'english' | 'shorter'
 export type EmailGoal = 'check-in' | 'schedule-call' | 'share-update' | 're-introduce' | 'close-deal'
 export type EmailLanguage = 'croatian' | 'serbian' | 'english'
