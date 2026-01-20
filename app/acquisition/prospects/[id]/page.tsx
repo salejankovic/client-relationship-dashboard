@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react"
 import { useParams, useRouter } from "next/navigation"
 import { useProspects, useProspectComments } from "@/hooks/use-prospects"
+import { useEmailDrafts } from "@/hooks/use-email-drafts"
+import { EmailComposerModal } from "@/components/email-composer-modal"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
@@ -14,7 +16,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { ArrowLeft, Loader2, Save, Trash2, MessageSquare, Mail } from "lucide-react"
+import { ArrowLeft, Loader2, Save, Trash2, MessageSquare, Mail, ExternalLink } from "lucide-react"
 import Link from "next/link"
 import type { Prospect, ProspectStatus, ProductType, ProspectType } from "@/lib/types"
 
@@ -24,10 +26,12 @@ export default function ProspectDetailPage() {
   const prospectId = params?.id as string
   const { prospects, loading, updateProspect, deleteProspect, archiveProspect } = useProspects()
   const { comments, loading: commentsLoading, addComment } = useProspectComments(prospectId)
+  const { drafts, loading: draftsLoading, addDraft, deleteDraft } = useEmailDrafts(prospectId)
 
   const [prospect, setProspect] = useState<Prospect | null>(null)
   const [newComment, setNewComment] = useState("")
   const [isSaving, setIsSaving] = useState(false)
+  const [showEmailComposer, setShowEmailComposer] = useState(false)
 
   useEffect(() => {
     const found = prospects.find((p) => p.id === prospectId)
@@ -116,6 +120,10 @@ export default function ProspectDetailPage() {
           </div>
         </div>
         <div className="flex gap-2">
+          <Button variant="outline" onClick={() => setShowEmailComposer(true)}>
+            <Mail className="h-4 w-4 mr-2" />
+            Email
+          </Button>
           <Button onClick={handleSave} disabled={isSaving}>
             {isSaving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
             Save
@@ -256,6 +264,93 @@ export default function ProspectDetailPage() {
         </CardContent>
       </Card>
 
+      {/* Email Drafts */}
+      <Card className="mb-6">
+        <CardHeader>
+          <CardTitle className="text-lg flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Mail className="h-5 w-5" />
+              Email Drafts
+            </div>
+            <Button size="sm" onClick={() => setShowEmailComposer(true)}>
+              <Mail className="h-4 w-4 mr-2" />
+              Compose
+            </Button>
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {draftsLoading ? (
+            <div className="flex justify-center py-4">
+              <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+            </div>
+          ) : drafts.length === 0 ? (
+            <p className="text-sm text-muted-foreground text-center py-4">
+              No email drafts yet. Click "Compose" to generate an AI email.
+            </p>
+          ) : (
+            <div className="space-y-3">
+              {drafts.map((draft) => (
+                <div key={draft.id} className="border rounded-lg p-4 space-y-2">
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <h4 className="font-medium text-sm">{draft.subject}</h4>
+                      <div className="flex items-center gap-2 mt-1">
+                        {draft.tone && (
+                          <span className="text-xs bg-secondary px-2 py-0.5 rounded">
+                            {draft.tone}
+                          </span>
+                        )}
+                        {draft.goal && (
+                          <span className="text-xs bg-secondary px-2 py-0.5 rounded">
+                            {draft.goal}
+                          </span>
+                        )}
+                        {draft.language && (
+                          <span className="text-xs bg-secondary px-2 py-0.5 rounded">
+                            {draft.language}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => deleteDraft(draft.id)}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                  <p className="text-sm text-muted-foreground line-clamp-2">
+                    {draft.body}
+                  </p>
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <span>Created {new Date(draft.createdAt).toLocaleDateString()}</span>
+                    {draft.sentAt && (
+                      <>
+                        <span>•</span>
+                        <span className="text-green-600">Sent</span>
+                      </>
+                    )}
+                    {draft.openedAt && (
+                      <>
+                        <span>•</span>
+                        <span className="text-blue-600">Opened</span>
+                      </>
+                    )}
+                    {draft.repliedAt && (
+                      <>
+                        <span>•</span>
+                        <span className="text-purple-600">Replied</span>
+                      </>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
       {/* Activity Timeline */}
       <Card>
         <CardHeader>
@@ -306,6 +401,15 @@ export default function ProspectDetailPage() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Email Composer Modal */}
+      <EmailComposerModal
+        open={showEmailComposer}
+        onOpenChange={setShowEmailComposer}
+        prospectCompany={prospect.company}
+        prospectId={prospect.id}
+        onSave={addDraft}
+      />
     </div>
   )
 }

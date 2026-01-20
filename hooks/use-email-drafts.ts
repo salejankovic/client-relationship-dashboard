@@ -137,6 +137,41 @@ export function useEmailDrafts(prospectId: string) {
     }
   }
 
+  // Add draft (alternative to saveDraft, accepts EmailDraft object)
+  const addDraft = async (draft: Omit<EmailDraft, "id" | "createdAt">) => {
+    try {
+      const newDraft: EmailDraft = {
+        ...draft,
+        id: `draft-${Date.now()}`,
+        createdAt: new Date().toISOString(),
+      }
+
+      // Optimistic update
+      setDrafts((prev) => [newDraft, ...prev])
+
+      const { error } = await supabase.from("email_drafts").insert([{
+        id: newDraft.id,
+        prospect_id: newDraft.prospectId,
+        subject: newDraft.subject,
+        body: newDraft.body,
+        tone: newDraft.tone,
+        goal: newDraft.goal,
+        language: newDraft.language,
+        ai_model: newDraft.aiModel,
+      }])
+
+      if (error) {
+        await fetchDrafts()
+        throw error
+      }
+
+      return newDraft
+    } catch (err) {
+      console.error("Error adding draft:", err)
+      throw err
+    }
+  }
+
   // Mark draft as sent
   const markAsSent = async (draftId: string) => {
     try {
@@ -166,6 +201,7 @@ export function useEmailDrafts(prospectId: string) {
     loading,
     error,
     saveDraft,
+    addDraft,
     deleteDraft,
     markAsSent,
     refetch: fetchDrafts,
