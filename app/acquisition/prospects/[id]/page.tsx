@@ -1,0 +1,311 @@
+"use client"
+
+import { useEffect, useState } from "react"
+import { useParams, useRouter } from "next/navigation"
+import { useProspects, useProspectComments } from "@/hooks/use-prospects"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Textarea } from "@/components/ui/textarea"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+import { ArrowLeft, Loader2, Save, Trash2, MessageSquare, Mail } from "lucide-react"
+import Link from "next/link"
+import type { Prospect, ProspectStatus, ProductType, ProspectType } from "@/lib/types"
+
+export default function ProspectDetailPage() {
+  const params = useParams()
+  const router = useRouter()
+  const prospectId = params?.id as string
+  const { prospects, loading, updateProspect, deleteProspect, archiveProspect } = useProspects()
+  const { comments, loading: commentsLoading, addComment } = useProspectComments(prospectId)
+
+  const [prospect, setProspect] = useState<Prospect | null>(null)
+  const [newComment, setNewComment] = useState("")
+  const [isSaving, setIsSaving] = useState(false)
+
+  useEffect(() => {
+    const found = prospects.find((p) => p.id === prospectId)
+    if (found) {
+      setProspect(found)
+    }
+  }, [prospects, prospectId])
+
+  if (loading) {
+    return (
+      <div className="flex h-screen items-center justify-center">
+        <div className="flex items-center gap-2">
+          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+          <span className="text-muted-foreground">Loading prospect...</span>
+        </div>
+      </div>
+    )
+  }
+
+  if (!prospect) {
+    return (
+      <div className="flex h-screen items-center justify-center">
+        <div className="text-center">
+          <h2 className="text-2xl font-semibold mb-2">Prospect not found</h2>
+          <Link href="/acquisition">
+            <Button>Back to Acquisition</Button>
+          </Link>
+        </div>
+      </div>
+    )
+  }
+
+  const handleSave = async () => {
+    setIsSaving(true)
+    try {
+      await updateProspect(prospect)
+    } catch (error) {
+      console.error("Error saving prospect:", error)
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  const handleDelete = async () => {
+    if (confirm(`Are you sure you want to delete ${prospect.company}?`)) {
+      await deleteProspect(prospect.id)
+      router.push("/acquisition")
+    }
+  }
+
+  const handleArchive = async () => {
+    const reason = prompt("Reason for archiving:")
+    if (reason) {
+      await archiveProspect(prospect.id, reason)
+      router.push("/acquisition")
+    }
+  }
+
+  const handleAddComment = async () => {
+    if (newComment.trim()) {
+      await addComment(newComment, "Current User") // In future, get from auth
+      setNewComment("")
+
+      // Update last contact date
+      await updateProspect({
+        ...prospect,
+        lastContactDate: new Date().toISOString(),
+      })
+    }
+  }
+
+  return (
+    <div className="p-8 max-w-5xl mx-auto">
+      {/* Header */}
+      <div className="flex items-center justify-between mb-8">
+        <div className="flex items-center gap-4">
+          <Link href="/acquisition">
+            <Button variant="ghost" size="sm">
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Back
+            </Button>
+          </Link>
+          <div>
+            <h1 className="text-3xl font-bold text-foreground">{prospect.company}</h1>
+            <p className="text-muted-foreground">{prospect.contactPerson || "No contact person"}</p>
+          </div>
+        </div>
+        <div className="flex gap-2">
+          <Button onClick={handleSave} disabled={isSaving}>
+            {isSaving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
+            Save
+          </Button>
+          <Button variant="outline" onClick={handleArchive}>
+            Archive
+          </Button>
+          <Button variant="destructive" onClick={handleDelete}>
+            <Trash2 className="h-4 w-4 mr-2" />
+            Delete
+          </Button>
+        </div>
+      </div>
+
+      {/* Main Content */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+        {/* Basic Info */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg">Basic Information</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div>
+              <label className="text-sm font-medium block mb-2">Company Name</label>
+              <Input
+                value={prospect.company}
+                onChange={(e) => setProspect({ ...prospect, company: e.target.value })}
+              />
+            </div>
+            <div>
+              <label className="text-sm font-medium block mb-2">Contact Person</label>
+              <Input
+                value={prospect.contactPerson || ""}
+                onChange={(e) => setProspect({ ...prospect, contactPerson: e.target.value })}
+              />
+            </div>
+            <div>
+              <label className="text-sm font-medium block mb-2">Email</label>
+              <Input
+                type="email"
+                value={prospect.email || ""}
+                onChange={(e) => setProspect({ ...prospect, email: e.target.value })}
+              />
+            </div>
+            <div>
+              <label className="text-sm font-medium block mb-2">Phone</label>
+              <Input
+                value={prospect.telephone || ""}
+                onChange={(e) => setProspect({ ...prospect, telephone: e.target.value })}
+              />
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Pipeline Info */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg">Pipeline Details</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div>
+              <label className="text-sm font-medium block mb-2">Status</label>
+              <Select
+                value={prospect.status}
+                onValueChange={(value: ProspectStatus) => setProspect({ ...prospect, status: value })}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Hot">🔥 Hot</SelectItem>
+                  <SelectItem value="Warm">☀️ Warm</SelectItem>
+                  <SelectItem value="Cold">❄️ Cold</SelectItem>
+                  <SelectItem value="Lost">Lost</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <label className="text-sm font-medium block mb-2">Product Type</label>
+              <Select
+                value={prospect.productType || ""}
+                onValueChange={(value: ProductType) => setProspect({ ...prospect, productType: value })}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select product" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Mobile app">Mobile App</SelectItem>
+                  <SelectItem value="Website/CMS">Website/CMS</SelectItem>
+                  <SelectItem value="LitteraWorks">LitteraWorks</SelectItem>
+                  <SelectItem value="CMS">CMS</SelectItem>
+                  <SelectItem value="Other">Other</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <label className="text-sm font-medium block mb-2">Deal Value (€)</label>
+              <Input
+                type="number"
+                value={prospect.dealValue || ""}
+                onChange={(e) => setProspect({ ...prospect, dealValue: parseFloat(e.target.value) || undefined })}
+              />
+            </div>
+            <div>
+              <label className="text-sm font-medium block mb-2">Owner</label>
+              <Input
+                value={prospect.owner || ""}
+                onChange={(e) => setProspect({ ...prospect, owner: e.target.value })}
+                placeholder="Assigned sales person"
+              />
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Next Action */}
+      <Card className="mb-6">
+        <CardHeader>
+          <CardTitle className="text-lg">Next Action</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div>
+            <label className="text-sm font-medium block mb-2">What's next?</label>
+            <Input
+              value={prospect.nextAction || ""}
+              onChange={(e) => setProspect({ ...prospect, nextAction: e.target.value })}
+              placeholder="e.g., Schedule demo call"
+            />
+          </div>
+          <div>
+            <label className="text-sm font-medium block mb-2">Due Date</label>
+            <Input
+              type="date"
+              value={prospect.nextActionDate || ""}
+              onChange={(e) => setProspect({ ...prospect, nextActionDate: e.target.value })}
+            />
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Activity Timeline */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg flex items-center gap-2">
+            <MessageSquare className="h-5 w-5" />
+            Activity Timeline
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            {/* Add Comment */}
+            <div className="flex gap-2">
+              <Textarea
+                placeholder="Add a comment..."
+                value={newComment}
+                onChange={(e) => setNewComment(e.target.value)}
+                className="flex-1"
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+                    handleAddComment()
+                  }
+                }}
+              />
+              <Button onClick={handleAddComment} disabled={!newComment.trim()}>
+                Add
+              </Button>
+            </div>
+
+            {/* Comments List */}
+            {commentsLoading ? (
+              <div className="flex justify-center py-4">
+                <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+              </div>
+            ) : comments.length === 0 ? (
+              <p className="text-sm text-muted-foreground text-center py-4">No activity yet</p>
+            ) : (
+              <div className="space-y-3">
+                {comments.map((comment) => (
+                  <div key={comment.id} className="border-l-2 border-border pl-4 py-2">
+                    <p className="text-sm text-foreground">{comment.comment}</p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {comment.author} • {new Date(comment.createdAt).toLocaleDateString()}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  )
+}

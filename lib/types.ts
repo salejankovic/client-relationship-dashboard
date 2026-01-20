@@ -46,3 +46,104 @@ export interface Client {
   upsellStrategy?: Product[]
   activity: ActivityLog[]
 }
+
+// ==================================================
+// ACQUISITION MODULE TYPES
+// ==================================================
+
+export type ProspectStatus = 'Hot' | 'Warm' | 'Cold' | 'Lost'
+export type ProspectType = 'Media' | 'Sports Club' | 'Sports League' | 'Other'
+export type ProductType = 'Mobile app' | 'Website/CMS' | 'LitteraWorks' | 'CMS' | 'Other'
+export type IntelligenceSourceType = 'linkedin' | 'news' | 'sports' | 'job-change' | 'funding' | 'other'
+export type EmailTone = 'formal' | 'casual' | 'urgent' | 'english' | 'shorter'
+export type EmailGoal = 'check-in' | 'schedule-call' | 'share-update' | 're-introduce' | 'close-deal'
+export type EmailLanguage = 'croatian' | 'serbian' | 'english'
+export type Sentiment = 'positive' | 'neutral' | 'negative'
+export type RiskLevel = 'low' | 'medium' | 'high'
+
+export interface Prospect {
+  id: string
+  company: string
+  contactPerson?: string
+  email?: string
+  telephone?: string
+  website?: string
+  linkedinUrl?: string
+
+  // Classification
+  productType?: ProductType
+  prospectType?: ProspectType
+  country?: string
+
+  // Sales Pipeline
+  status: ProspectStatus
+  owner?: string
+  source?: string
+  dealValue?: number
+
+  // Activity Tracking
+  nextAction?: string
+  nextActionDate?: string
+  lastContactDate?: string
+  daysSinceContact?: number
+
+  // Archiving
+  archived: boolean
+  archivedDate?: string
+  archiveReason?: string
+
+  // Metadata
+  createdAt: string
+  updatedAt: string
+}
+
+export interface ProspectComment {
+  id: string
+  prospectId: string
+  comment: string
+  author?: string
+  createdAt: string
+}
+
+export interface IntelligenceItem {
+  id: string
+  prospectId?: string
+  title: string
+  description?: string
+  sourceType: IntelligenceSourceType
+  url?: string
+  imageUrl?: string
+  publishedAt?: string
+  createdAt: string
+  dismissed: boolean
+  aiTip?: string
+  relevanceScore?: number
+}
+
+export interface EmailDraft {
+  id: string
+  prospectId: string
+  subject: string
+  body: string
+  tone?: EmailTone
+  goal?: EmailGoal
+  language?: EmailLanguage
+  sentAt?: string
+  openedAt?: string
+  repliedAt?: string
+  aiModel?: string
+  createdAt: string
+}
+
+export interface AIInsight {
+  id: string
+  prospectId: string
+  sentiment: Sentiment
+  engagementScore: number
+  riskLevel: RiskLevel
+  recommendedAction?: string
+  bestTimeToReach?: string
+  keyTopics?: string[]
+  generatedAt: string
+  aiModel?: string
+}

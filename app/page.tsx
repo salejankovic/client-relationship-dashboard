@@ -7,7 +7,7 @@ import { AddClientModal } from "@/components/add-client-modal"
 import { ProductManagerModal } from "@/components/product-manager-modal"
 import type { Client, Product } from "@/lib/types"
 import { Button } from "@/components/ui/button"
-import { Plus, Settings, Moon, Sun, Loader2 } from "lucide-react"
+import { Plus, Settings, Moon, Sun, Loader2, Target } from "lucide-react"
 import { useTheme } from "next-themes"
 import { useClients } from "@/hooks/use-clients"
 import { useProducts } from "@/hooks/use-products"
@@ -59,6 +59,10 @@ export default function ClientDashboard() {
           <h1 className="text-xl font-bold text-foreground">Appworks Client Dashboard</h1>
 
           <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" onClick={() => (window.location.href = "/acquisition")}>
+              <Target className="h-4 w-4 mr-2" />
+              Acquisition
+            </Button>
             <Button variant="outline" size="sm" onClick={() => (window.location.href = "/settings")}>
               <Settings className="h-4 w-4 mr-2" />
               Settings
