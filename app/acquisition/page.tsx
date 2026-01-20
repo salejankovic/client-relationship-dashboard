@@ -4,7 +4,7 @@ import { useState } from "react"
 import { useProspects } from "@/hooks/use-prospects"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Plus, Search, Loader2, ArrowLeft, Lightbulb } from "lucide-react"
+import { Plus, Search, Loader2, ArrowLeft, Lightbulb, Upload } from "lucide-react"
 import Link from "next/link"
 import type { Prospect, ProspectStatus } from "@/lib/types"
 
@@ -74,6 +74,12 @@ export default function AcquisitionPage() {
             <Button variant="outline">
               <Lightbulb className="h-4 w-4 mr-2" />
               Intelligence
+            </Button>
+          </Link>
+          <Link href="/acquisition/import">
+            <Button variant="outline">
+              <Upload className="h-4 w-4 mr-2" />
+              Import CSV
             </Button>
           </Link>
           <Link href="/acquisition/prospects/new">
