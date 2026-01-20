@@ -21,7 +21,12 @@
       "Bash(git commit:*)",
       "Bash(gh:*)",
       "Bash(git push:*)",
-      "Bash(npm run build:*)"
+      "Bash(npm run build:*)",
+      "Bash(for file in \"c:\\\\Users\\\\janko\\\\Downloads\\\\client-relationship-dashboard\\\\components\\\\ui\\\\*.tsx\")",
+      "Bash(do grep -l \"export\" \"$file\")",
+      "Bash(xargs basename:*)",
+      "Bash(done)",
+      "Bash(git -C \"c:\\\\Users\\\\janko\\\\Downloads\\\\client-relationship-dashboard\" status --porcelain)"
     ]
   }
 }
