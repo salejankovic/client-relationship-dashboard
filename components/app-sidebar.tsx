@@ -17,9 +17,10 @@ import {
 const navigation = [
   { name: "Dashboard", href: "/acquisition", icon: LayoutDashboard },
   { name: "Prospects", href: "/acquisition/prospects", icon: Users },
+  { name: "Archived", href: "/acquisition/archived", icon: Archive },
   { name: "Intelligence", href: "/acquisition/intelligence", icon: Newspaper },
   { name: "Import CSV", href: "/acquisition/import", icon: Upload },
-  { name: "Back to Clients", href: "/", icon: Archive },
+  { name: "Back to Clients", href: "/", icon: TrendingUp },
 ];
 
 export function AppSidebar() {

@@ -7,6 +7,7 @@ import { useEmailDrafts } from "@/hooks/use-email-drafts"
 import { useIntelligence } from "@/hooks/use-intelligence"
 import { EmailComposerModal } from "@/components/email-composer-modal"
 import { AIInsightsCard } from "@/components/ai-insights-card"
+import { ArchiveProspectDialog } from "@/components/archive-prospect-dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
@@ -29,12 +30,14 @@ export default function ProspectDetailPage() {
   const { prospects, loading, updateProspect, deleteProspect, archiveProspect } = useProspects()
   const { comments, loading: commentsLoading, addComment } = useProspectComments(prospectId)
   const { drafts, loading: draftsLoading, addDraft, deleteDraft } = useEmailDrafts(prospectId)
-  const { intelligenceItems, loading: intelligenceLoading, dismissItem } = useIntelligence(prospectId)
+  const { intelligenceItems, loading: intelligenceLoading, dismissItem, addIntelligenceItem } = useIntelligence(prospectId)
 
   const [prospect, setProspect] = useState<Prospect | null>(null)
   const [newComment, setNewComment] = useState("")
   const [isSaving, setIsSaving] = useState(false)
   const [showEmailComposer, setShowEmailComposer] = useState(false)
+  const [showArchiveDialog, setShowArchiveDialog] = useState(false)
+  const [isFetchingNews, setIsFetchingNews] = useState(false)
 
   useEffect(() => {
     const found = prospects.find((p) => p.id === prospectId)
@@ -85,12 +88,10 @@ export default function ProspectDetailPage() {
     }
   }
 
-  const handleArchive = async () => {
-    const reason = prompt("Reason for archiving:")
-    if (reason) {
-      await archiveProspect(prospect.id, reason)
-      router.push("/acquisition")
-    }
+  const handleArchive = async (reason: string, notes?: string) => {
+    const finalReason = notes ? `${reason}\n\nNotes: ${notes}` : reason
+    await archiveProspect(prospect.id, finalReason)
+    router.push("/acquisition")
   }
 
   const handleAddComment = async () => {
@@ -103,6 +104,39 @@ export default function ProspectDetailPage() {
         ...prospect,
         lastContactDate: new Date().toISOString(),
       })
+    }
+  }
+
+  const handleFetchNews = async () => {
+    setIsFetchingNews(true)
+    try {
+      const response = await fetch("/api/fetch-intelligence", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          companyName: prospect.company,
+          productType: prospect.productType,
+          dealValue: prospect.dealValue,
+          prospectId: prospect.id,
+        }),
+      })
+
+      const data = await response.json()
+
+      if (data.items && data.items.length > 0) {
+        // Add each intelligence item to the database
+        for (const item of data.items) {
+          await addIntelligenceItem(item)
+        }
+        alert(`Successfully fetched ${data.items.length} relevant news articles!`)
+      } else {
+        alert("No recent news found for this company.")
+      }
+    } catch (error) {
+      console.error("Error fetching news:", error)
+      alert("Failed to fetch news. Please try again.")
+    } finally {
+      setIsFetchingNews(false)
     }
   }
 
@@ -131,7 +165,7 @@ export default function ProspectDetailPage() {
             {isSaving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
             Save
           </Button>
-          <Button variant="outline" onClick={handleArchive}>
+          <Button variant="outline" onClick={() => setShowArchiveDialog(true)}>
             Archive
           </Button>
           <Button variant="destructive" onClick={handleDelete}>
@@ -280,11 +314,32 @@ export default function ProspectDetailPage() {
               <Lightbulb className="h-5 w-5" />
               Intelligence
             </div>
-            <Link href="/acquisition/intelligence">
-              <Button size="sm" variant="outline">
-                View All
+            <div className="flex items-center gap-2">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={handleFetchNews}
+                disabled={isFetchingNews}
+                className="bg-blue-50 hover:bg-blue-100 text-blue-600 border-blue-200"
+              >
+                {isFetchingNews ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Fetching...
+                  </>
+                ) : (
+                  <>
+                    <Lightbulb className="h-4 w-4 mr-2" />
+                    Fetch News
+                  </>
+                )}
               </Button>
-            </Link>
+              <Link href="/acquisition/intelligence">
+                <Button size="sm" variant="outline">
+                  View All
+                </Button>
+              </Link>
+            </div>
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -505,6 +560,14 @@ export default function ProspectDetailPage() {
         prospectCompany={prospect.company}
         prospectId={prospect.id}
         onSave={addDraft}
+      />
+
+      {/* Archive Prospect Dialog */}
+      <ArchiveProspectDialog
+        open={showArchiveDialog}
+        onOpenChange={setShowArchiveDialog}
+        prospectName={prospect.company}
+        onConfirm={handleArchive}
       />
     </div>
   )
