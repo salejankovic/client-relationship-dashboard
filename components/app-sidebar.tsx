@@ -27,16 +27,8 @@ export function AppSidebar() {
   const pathname = usePathname();
 
   return (
-    <aside className="hidden lg:flex lg:flex-col lg:w-64 lg:fixed lg:inset-y-0 border-r border-border bg-sidebar">
-      <div className="flex items-center h-16 px-6 border-b border-border">
-        <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center">
-            <Sparkles className="w-4 h-4 text-white" />
-          </div>
-          <span className="font-semibold text-sidebar-foreground">Appworks</span>
-        </div>
-      </div>
-      <nav className="flex-1 px-3 py-4 space-y-1">
+    <aside className="hidden lg:flex lg:flex-col lg:w-64 lg:fixed lg:top-16 lg:bottom-0 lg:left-0 border-r border-border bg-sidebar">
+      <nav className="flex-1 px-3 py-4 space-y-1 mt-4">
         {navigation.map((item) => {
           const isActive = pathname === item.href || (item.href !== "/" && pathname.startsWith(item.href));
           return (
