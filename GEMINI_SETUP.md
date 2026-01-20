@@ -10,7 +10,7 @@ Add the following environment variable to your Vercel project:
 3. Add the following variable:
 
 ```
-GEMINI_API_KEY=AIzaSyAwKVdJ72UKT4y-dpgxD0oluk3EC0gkocM
+GEMINI_API_KEY=your_gemini_api_key_here
 ```
 
 4. Make sure to add it for **Production**, **Preview**, and **Development** environments
