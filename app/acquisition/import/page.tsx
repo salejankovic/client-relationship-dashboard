@@ -10,6 +10,9 @@ import { Label } from "@/components/ui/label"
 import { ArrowLeft, Upload, Loader2, Check, AlertCircle, Download } from "lucide-react"
 import Link from "next/link"
 import type { ProspectStatus, ProductType, ProspectType } from "@/lib/types"
+import { MainNav } from "@/components/main-nav"
+import { AppSidebar } from "@/components/app-sidebar"
+import { MobileNav } from "@/components/mobile-nav"
 
 interface CSVRow {
   [key: string]: string
@@ -218,9 +221,14 @@ Another Co,Jane Smith,jane@another.com,+385 1 987 6543,https://another.com,Websi
   }
 
   return (
-    <div className="p-8 max-w-5xl mx-auto">
-      {/* Header */}
-      <div className="flex items-center gap-4 mb-8">
+    <div className="min-h-screen bg-background">
+      <MainNav />
+      <AppSidebar />
+      <MobileNav />
+      <main className="lg:pl-64 pb-20 lg:pb-0 pt-16">
+        <div className="p-8 max-w-5xl mx-auto">
+          {/* Header */}
+          <div className="flex items-center gap-4 mb-8">
         <Link href="/acquisition">
           <Button variant="ghost" size="sm">
             <ArrowLeft className="h-4 w-4 mr-2" />
@@ -555,6 +563,8 @@ Another Co,Jane Smith,jane@another.com,+385 1 987 6543,https://another.com,Websi
           </CardContent>
         </Card>
       )}
+        </div>
+      </main>
     </div>
   )
 }
