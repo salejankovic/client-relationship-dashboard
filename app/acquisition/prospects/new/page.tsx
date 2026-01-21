@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
+import { Badge } from "@/components/ui/badge"
 import {
   Select,
   SelectContent,
@@ -15,6 +16,9 @@ import {
 } from "@/components/ui/select"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { useProspects } from "@/hooks/use-prospects"
+import { useProducts } from "@/hooks/use-products"
+import { useTeamMembers } from "@/hooks/use-team-members"
+import { useProspectTypes } from "@/hooks/use-prospect-types"
 import type { ProductType, ProspectType, ProspectStatus } from "@/lib/types"
 import { ArrowLeft, Loader2 } from "lucide-react"
 import Link from "next/link"
@@ -22,19 +26,21 @@ import { MainNav } from "@/components/main-nav"
 import { AppSidebar } from "@/components/app-sidebar"
 import { MobileNav } from "@/components/mobile-nav"
 
-const PRODUCTS: ProductType[] = ["Mobile app", "Website/CMS", "LitteraWorks", "CMS", "Other"]
-const TYPES: ProspectType[] = ["Media", "Sports Club", "Sports League", "Other"]
 const COUNTRIES = ["Serbia", "Croatia", "Slovenia", "Spain", "Azerbaijan", "Ghana"]
 const STATUSES: ProspectStatus[] = ["Hot", "Warm", "Cold", "Lost"]
 
 export default function NewProspectPage() {
   const router = useRouter()
   const { addProspect } = useProspects()
+  const { products, getProductConfig } = useProducts()
+  const { teamMembers } = useTeamMembers()
+  const { prospectTypes } = useProspectTypes()
+
   const [isSaving, setIsSaving] = useState(false)
   const [formData, setFormData] = useState({
     company: "",
     productType: "" as ProductType | "",
-    owner: "Aleksandar",
+    owner: teamMembers[0] || "Aleksandar",
     prospectType: "" as ProspectType | "",
     country: "",
     status: "Warm" as ProspectStatus,
@@ -56,7 +62,9 @@ export default function NewProspectPage() {
     setIsSaving(true)
 
     try {
+      const now = new Date().toISOString()
       await addProspect({
+        id: `prospect-${Date.now()}`,
         company: formData.company,
         productType: formData.productType || undefined,
         owner: formData.owner || undefined,
@@ -72,6 +80,8 @@ export default function NewProspectPage() {
         lastContactDate: new Date().toISOString().split('T')[0],
         daysSinceContact: 0,
         archived: false,
+        createdAt: now,
+        updatedAt: now,
       })
 
       router.push("/acquisition/prospects")
@@ -136,11 +146,21 @@ export default function NewProspectPage() {
                             <SelectValue placeholder="Select product" />
                           </SelectTrigger>
                           <SelectContent>
-                            {PRODUCTS.map((p) => (
-                              <SelectItem key={p} value={p}>
-                                {p}
-                              </SelectItem>
-                            ))}
+                            {products.map((p) => {
+                              const config = getProductConfig(p as any)
+                              return (
+                                <SelectItem key={p} value={p}>
+                                  <div className="flex items-center gap-2">
+                                    <Badge
+                                      style={{ backgroundColor: config.bgColor, color: config.textColor }}
+                                      className="text-xs px-2 py-0.5"
+                                    >
+                                      {p}
+                                    </Badge>
+                                  </div>
+                                </SelectItem>
+                              )
+                            })}
                           </SelectContent>
                         </Select>
                       </div>
@@ -176,7 +196,7 @@ export default function NewProspectPage() {
                             <SelectValue placeholder="Select type" />
                           </SelectTrigger>
                           <SelectContent>
-                            {TYPES.map((t) => (
+                            {prospectTypes.map((t) => (
                               <SelectItem key={t} value={t}>
                                 {t}
                               </SelectItem>
@@ -219,11 +239,21 @@ export default function NewProspectPage() {
 
                       <div className="grid gap-2">
                         <Label htmlFor="owner">Owner</Label>
-                        <Input
-                          id="owner"
+                        <Select
                           value={formData.owner}
-                          onChange={(e) => handleChange("owner", e.target.value)}
-                        />
+                          onValueChange={(v) => handleChange("owner", v)}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select owner" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {teamMembers.map((member) => (
+                              <SelectItem key={member} value={member}>
+                                {member}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
                       </div>
                     </div>
                   </div>

@@ -1,7 +1,5 @@
 "use client"
 
-import { cn } from "@/lib/utils"
-
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -13,6 +11,7 @@ import { useRouter } from "next/navigation"
 import type { ClientCategory } from "@/lib/types"
 import { useProducts } from "@/hooks/use-products"
 import { useTeamMembers } from "@/hooks/use-team-members"
+import { useProspectTypes } from "@/hooks/use-prospect-types"
 import { MainNav } from "@/components/main-nav"
 import { AppSidebar } from "@/components/app-sidebar"
 import { MobileNav } from "@/components/mobile-nav"
@@ -21,6 +20,7 @@ export default function SettingsPage() {
   const router = useRouter()
   const { products, productConfigs, loading: productsLoading, addProduct: addProductToDb, deleteProduct, updateProductColors } = useProducts()
   const { teamMembers, loading: teamMembersLoading, addTeamMember: addTeamMemberToDb, deleteTeamMember } = useTeamMembers()
+  const { prospectTypes, addProspectType, deleteProspectType } = useProspectTypes()
 
   const [newProduct, setNewProduct] = useState("")
   const [newProductBgColor, setNewProductBgColor] = useState("#3b82f6")
@@ -28,10 +28,8 @@ export default function SettingsPage() {
   const [editingProduct, setEditingProduct] = useState<string | null>(null)
   const [editBgColor, setEditBgColor] = useState("")
   const [editTextColor, setEditTextColor] = useState("")
-  const [branches] = useState<ClientCategory[]>(["Media", "Sport"])
   const [newTeamMember, setNewTeamMember] = useState("")
-
-  const loading = productsLoading || teamMembersLoading
+  const [newProspectType, setNewProspectType] = useState("")
 
   const addProduct = async () => {
     if (newProduct.trim() && !products.includes(newProduct.trim() as any)) {
@@ -71,6 +69,17 @@ export default function SettingsPage() {
 
   const removeTeamMember = async (member: string) => {
     await deleteTeamMember(member)
+  }
+
+  const addBranch = async () => {
+    if (newProspectType.trim() && !prospectTypes.includes(newProspectType.trim() as any)) {
+      await addProspectType(newProspectType.trim())
+      setNewProspectType("")
+    }
+  }
+
+  const removeBranch = async (type: string) => {
+    await deleteProspectType(type)
   }
 
   return (
@@ -249,28 +258,38 @@ export default function SettingsPage() {
 
         <Card className="bg-card border-border">
           <CardHeader>
-            <CardTitle>Branches</CardTitle>
-            <CardDescription>Client categories for organization</CardDescription>
+            <CardTitle>Prospect Types (Branches)</CardTitle>
+            <CardDescription>Categories for organizing potential clients</CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="space-y-4">
             <div className="flex flex-wrap gap-2">
-              {branches.map((branch) => (
-                <Badge
-                  key={branch}
-                  variant="outline"
-                  className={cn(
-                    "text-sm",
-                    branch === "Media" && "border-blue-500 text-blue-500",
-                    branch === "Sport" && "border-orange-500 text-orange-500",
-                  )}
-                >
-                  {branch}
+              {prospectTypes.map((type) => (
+                <Badge key={type} variant="secondary" className="text-sm pl-3 pr-1 py-1">
+                  {type}
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-5 w-5 ml-2 hover:bg-destructive/20"
+                    onClick={() => removeBranch(type)}
+                  >
+                    <Trash2 className="h-3 w-3" />
+                  </Button>
                 </Badge>
               ))}
             </div>
-            <p className="text-sm text-muted-foreground mt-3">
-              Branch categories are pre-defined. Contact support to add custom categories.
-            </p>
+            <div className="flex gap-2">
+              <Input
+                placeholder="New prospect type..."
+                value={newProspectType}
+                onChange={(e) => setNewProspectType(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && addBranch()}
+                className="bg-background border-border"
+              />
+              <Button onClick={addBranch}>
+                <Plus className="h-4 w-4 mr-2" />
+                Add
+              </Button>
+            </div>
           </CardContent>
         </Card>
 
