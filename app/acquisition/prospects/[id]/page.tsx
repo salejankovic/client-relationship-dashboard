@@ -8,6 +8,7 @@ import { useIntelligence } from "@/hooks/use-intelligence"
 import { EmailComposerModal } from "@/components/email-composer-modal"
 import { AIInsightsCard } from "@/components/ai-insights-card"
 import { ArchiveProspectDialog } from "@/components/archive-prospect-dialog"
+import { CommunicationLog } from "@/components/communication-log"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
@@ -414,6 +415,11 @@ export default function ProspectDetailPage() {
           )}
         </CardContent>
       </Card>
+
+      {/* Communication Log */}
+      <div className="mb-6">
+        <CommunicationLog prospectId={prospectId} prospectEmail={prospect.email} />
+      </div>
 
       {/* Email Drafts */}
       <Card className="mb-6">
