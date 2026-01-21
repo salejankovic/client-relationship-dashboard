@@ -156,3 +156,19 @@ export interface AIInsight {
   generatedAt: string
   aiModel?: string
 }
+
+export type CommunicationType = 'email' | 'call' | 'meeting' | 'note' | 'linkedin'
+
+export interface Communication {
+  id: string
+  prospectId: string
+  type: CommunicationType
+  subject?: string
+  content: string
+  direction?: 'inbound' | 'outbound'
+  duration?: number // for calls/meetings in minutes
+  attendees?: string[]
+  author?: string
+  createdAt: string
+  aiSummary?: string
+}

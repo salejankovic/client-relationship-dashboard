@@ -20,6 +20,7 @@ const navigation = [
   { name: "Archived", href: "/acquisition/archived", icon: Archive },
   { name: "Intelligence", href: "/acquisition/intelligence", icon: Newspaper },
   { name: "Import CSV", href: "/acquisition/import", icon: Upload },
+  { name: "Settings", href: "/settings", icon: Settings },
   { name: "Back to Clients", href: "/", icon: TrendingUp },
 ];
 
