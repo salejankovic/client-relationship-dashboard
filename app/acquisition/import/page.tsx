@@ -41,18 +41,18 @@ export default function ImportProspectsPage() {
   const [csvData, setCSVData] = useState<CSVRow[]>([])
   const [headers, setHeaders] = useState<string[]>([])
   const [mapping, setMapping] = useState<FieldMapping>({
-    company: "",
-    contactPerson: "",
-    email: "",
-    telephone: "",
-    website: "",
-    productType: "",
-    prospectType: "",
-    country: "",
-    status: "",
-    owner: "",
-    dealValue: "",
-    nextAction: "",
+    company: "_skip",
+    contactPerson: "_skip",
+    email: "_skip",
+    telephone: "_skip",
+    website: "_skip",
+    productType: "_skip",
+    prospectType: "_skip",
+    country: "_skip",
+    status: "_skip",
+    owner: "_skip",
+    dealValue: "_skip",
+    nextAction: "_skip",
   })
   const [importing, setImporting] = useState(false)
   const [importProgress, setImportProgress] = useState(0)
@@ -152,7 +152,7 @@ Another Co,Jane Smith,jane@another.com,+385 1 987 6543,https://another.com,Websi
     const newErrors: string[] = []
 
     // Validate required field mapping
-    if (!mapping.company) {
+    if (!mapping.company || mapping.company === "_skip") {
       newErrors.push("Company field mapping is required")
       setErrors(newErrors)
       setImporting(false)
@@ -173,14 +173,14 @@ Another Co,Jane Smith,jane@another.com,+385 1 987 6543,https://another.com,Websi
 
         // Parse deal value
         let dealValue: number | undefined
-        if (mapping.dealValue && row[mapping.dealValue]) {
+        if (mapping.dealValue && mapping.dealValue !== "_skip" && row[mapping.dealValue]) {
           const parsed = parseFloat(row[mapping.dealValue].replace(/[^0-9.-]/g, ''))
           if (!isNaN(parsed)) dealValue = parsed
         }
 
         // Parse status
         let status: ProspectStatus = "Warm"
-        if (mapping.status && row[mapping.status]) {
+        if (mapping.status && mapping.status !== "_skip" && row[mapping.status]) {
           const statusValue = row[mapping.status].trim()
           if (['Hot', 'Warm', 'Cold', 'Lost'].includes(statusValue)) {
             status = statusValue as ProspectStatus
@@ -191,17 +191,17 @@ Another Co,Jane Smith,jane@another.com,+385 1 987 6543,https://another.com,Websi
         await addProspect({
           id: `prospect-import-${Date.now()}-${i}`,
           company: company.trim(),
-          contactPerson: mapping.contactPerson ? row[mapping.contactPerson] : undefined,
-          email: mapping.email ? row[mapping.email] : undefined,
-          telephone: mapping.telephone ? row[mapping.telephone] : undefined,
-          website: mapping.website ? row[mapping.website] : undefined,
-          productType: mapping.productType ? row[mapping.productType] as ProductType : undefined,
-          prospectType: mapping.prospectType ? row[mapping.prospectType] as ProspectType : undefined,
-          country: mapping.country ? row[mapping.country] : undefined,
+          contactPerson: mapping.contactPerson !== "_skip" ? row[mapping.contactPerson] : undefined,
+          email: mapping.email !== "_skip" ? row[mapping.email] : undefined,
+          telephone: mapping.telephone !== "_skip" ? row[mapping.telephone] : undefined,
+          website: mapping.website !== "_skip" ? row[mapping.website] : undefined,
+          productType: mapping.productType !== "_skip" ? row[mapping.productType] as ProductType : undefined,
+          prospectType: mapping.prospectType !== "_skip" ? row[mapping.prospectType] as ProspectType : undefined,
+          country: mapping.country !== "_skip" ? row[mapping.country] : undefined,
           status,
-          owner: mapping.owner ? row[mapping.owner] : undefined,
+          owner: mapping.owner !== "_skip" ? row[mapping.owner] : undefined,
           dealValue,
-          nextAction: mapping.nextAction ? row[mapping.nextAction] : undefined,
+          nextAction: mapping.nextAction !== "_skip" ? row[mapping.nextAction] : undefined,
           archived: false,
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
@@ -343,7 +343,7 @@ Another Co,Jane Smith,jane@another.com,+385 1 987 6543,https://another.com,Websi
                     <SelectValue placeholder="Select column..." />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Don't import</SelectItem>
+                    <SelectItem value="_skip">Don't import</SelectItem>
                     {headers.map(header => (
                       <SelectItem key={header} value={header}>{header}</SelectItem>
                     ))}
@@ -358,7 +358,7 @@ Another Co,Jane Smith,jane@another.com,+385 1 987 6543,https://another.com,Websi
                     <SelectValue placeholder="Select column..." />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Don't import</SelectItem>
+                    <SelectItem value="_skip">Don't import</SelectItem>
                     {headers.map(header => (
                       <SelectItem key={header} value={header}>{header}</SelectItem>
                     ))}
@@ -373,7 +373,7 @@ Another Co,Jane Smith,jane@another.com,+385 1 987 6543,https://another.com,Websi
                     <SelectValue placeholder="Select column..." />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Don't import</SelectItem>
+                    <SelectItem value="_skip">Don't import</SelectItem>
                     {headers.map(header => (
                       <SelectItem key={header} value={header}>{header}</SelectItem>
                     ))}
@@ -388,7 +388,7 @@ Another Co,Jane Smith,jane@another.com,+385 1 987 6543,https://another.com,Websi
                     <SelectValue placeholder="Select column..." />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Don't import</SelectItem>
+                    <SelectItem value="_skip">Don't import</SelectItem>
                     {headers.map(header => (
                       <SelectItem key={header} value={header}>{header}</SelectItem>
                     ))}
@@ -403,7 +403,7 @@ Another Co,Jane Smith,jane@another.com,+385 1 987 6543,https://another.com,Websi
                     <SelectValue placeholder="Select column..." />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Don't import</SelectItem>
+                    <SelectItem value="_skip">Don't import</SelectItem>
                     {headers.map(header => (
                       <SelectItem key={header} value={header}>{header}</SelectItem>
                     ))}
@@ -418,7 +418,7 @@ Another Co,Jane Smith,jane@another.com,+385 1 987 6543,https://another.com,Websi
                     <SelectValue placeholder="Select column..." />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Don't import</SelectItem>
+                    <SelectItem value="_skip">Don't import</SelectItem>
                     {headers.map(header => (
                       <SelectItem key={header} value={header}>{header}</SelectItem>
                     ))}
@@ -433,7 +433,7 @@ Another Co,Jane Smith,jane@another.com,+385 1 987 6543,https://another.com,Websi
                     <SelectValue placeholder="Select column..." />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Don't import</SelectItem>
+                    <SelectItem value="_skip">Don't import</SelectItem>
                     {headers.map(header => (
                       <SelectItem key={header} value={header}>{header}</SelectItem>
                     ))}
@@ -448,7 +448,7 @@ Another Co,Jane Smith,jane@another.com,+385 1 987 6543,https://another.com,Websi
                     <SelectValue placeholder="Select column..." />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Don't import</SelectItem>
+                    <SelectItem value="_skip">Don't import</SelectItem>
                     {headers.map(header => (
                       <SelectItem key={header} value={header}>{header}</SelectItem>
                     ))}
@@ -473,10 +473,10 @@ Another Co,Jane Smith,jane@another.com,+385 1 987 6543,https://another.com,Websi
                   <tbody>
                     {csvData.slice(0, 3).map((row, i) => (
                       <tr key={i} className="border-b">
-                        <td className="p-2">{mapping.company ? row[mapping.company] : '-'}</td>
-                        <td className="p-2">{mapping.contactPerson ? row[mapping.contactPerson] : '-'}</td>
-                        <td className="p-2">{mapping.email ? row[mapping.email] : '-'}</td>
-                        <td className="p-2">{mapping.status ? row[mapping.status] : 'Warm'}</td>
+                        <td className="p-2">{mapping.company !== "_skip" ? row[mapping.company] : '-'}</td>
+                        <td className="p-2">{mapping.contactPerson !== "_skip" ? row[mapping.contactPerson] : '-'}</td>
+                        <td className="p-2">{mapping.email !== "_skip" ? row[mapping.email] : '-'}</td>
+                        <td className="p-2">{mapping.status !== "_skip" ? row[mapping.status] : 'Warm'}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -488,7 +488,7 @@ Another Co,Jane Smith,jane@another.com,+385 1 987 6543,https://another.com,Websi
               <Button variant="outline" onClick={() => setStep(1)}>
                 Back
               </Button>
-              <Button onClick={handleImport} disabled={!mapping.company}>
+              <Button onClick={handleImport} disabled={!mapping.company || mapping.company === "_skip"}>
                 Import {csvData.length} Prospects
               </Button>
             </div>
