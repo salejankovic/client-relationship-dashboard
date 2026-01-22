@@ -60,6 +60,7 @@ export function ProspectContactsManager({ prospectId }: ProspectContactsManagerP
 
     try {
       if (editingContact) {
+        console.log("Editing contact:", editingContact.id)
         await updateContact({
           ...editingContact,
           name: formData.name.trim(),
@@ -69,7 +70,9 @@ export function ProspectContactsManager({ prospectId }: ProspectContactsManagerP
           linkedinUrl: formData.linkedinUrl.trim() || undefined,
           isPrimary: formData.isPrimary,
         })
+        console.log("Contact updated successfully")
       } else {
+        console.log("Adding new contact")
         await addContact({
           prospectId,
           name: formData.name.trim(),
@@ -79,13 +82,15 @@ export function ProspectContactsManager({ prospectId }: ProspectContactsManagerP
           linkedinUrl: formData.linkedinUrl.trim() || undefined,
           isPrimary: formData.isPrimary,
         })
+        console.log("Contact added successfully")
       }
 
       resetForm()
       setShowAddDialog(false)
     } catch (error) {
       console.error("Error saving contact:", error)
-      alert("Failed to save contact. Please try again.")
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+      alert(`Failed to save contact: ${errorMessage}\n\nCheck browser console for details.`)
     }
   }
 

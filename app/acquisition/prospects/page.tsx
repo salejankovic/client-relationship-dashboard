@@ -421,7 +421,7 @@ function ProspectsContent() {
                   <TableHead>Deal Value</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Last Contact</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
+                  <TableHead>Next Action</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -479,14 +479,29 @@ function ProspectsContent() {
                       <TableCell>
                         <DaysIndicator days={prospect.daysSinceContact} /> ago
                       </TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex items-center justify-end gap-1">
-                          <Link href={`/acquisition/prospects/${prospect.id}`}>
-                            <Button size="sm" variant="ghost" className="h-8 w-8 p-0" title="View">
-                              <Eye className="w-4 w-4" />
-                            </Button>
+                      <TableCell>
+                        {prospect.nextAction ? (
+                          <Link
+                            href={`/acquisition/prospects/${prospect.id}`}
+                            className="block hover:bg-muted/50 transition-colors rounded p-1 -m-1"
+                          >
+                            <div className="text-sm font-medium text-foreground line-clamp-1">
+                              {prospect.nextAction}
+                            </div>
+                            {prospect.nextActionDate && (
+                              <div className="text-xs text-muted-foreground">
+                                {new Date(prospect.nextActionDate).toLocaleDateString()}
+                              </div>
+                            )}
                           </Link>
-                        </div>
+                        ) : (
+                          <Link
+                            href={`/acquisition/prospects/${prospect.id}`}
+                            className="text-sm text-muted-foreground hover:text-blue-600"
+                          >
+                            -
+                          </Link>
+                        )}
                       </TableCell>
                     </TableRow>
                   );

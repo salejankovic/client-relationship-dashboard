@@ -96,19 +96,30 @@ export function useProspectContacts(prospectId?: string) {
 
   const updateContact = async (contact: ProspectContact) => {
     try {
-      const { error } = await supabase
-        .from("prospect_contacts")
-        .update({
-          name: contact.name,
-          position: contact.position,
-          email: contact.email,
-          telephone: contact.telephone,
-          linkedin_url: contact.linkedinUrl,
-          is_primary: contact.isPrimary,
-        })
-        .eq("id", contact.id)
+      const updateData = {
+        name: contact.name,
+        position: contact.position,
+        email: contact.email,
+        telephone: contact.telephone,
+        linkedin_url: contact.linkedinUrl,
+        is_primary: contact.isPrimary,
+        updated_at: new Date().toISOString(),
+      }
 
-      if (error) throw error
+      console.log("Updating contact:", contact.id, updateData)
+
+      const { data, error } = await supabase
+        .from("prospect_contacts")
+        .update(updateData)
+        .eq("id", contact.id)
+        .select()
+
+      if (error) {
+        console.error("Supabase update error:", error)
+        throw error
+      }
+
+      console.log("Contact updated successfully:", data)
     } catch (err) {
       console.error("Error updating contact:", err)
       throw err
