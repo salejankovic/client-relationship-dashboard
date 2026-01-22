@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react"
 import { useParams, useRouter } from "next/navigation"
-import { useProspects, useProspectComments } from "@/hooks/use-prospects"
+import { useProspects } from "@/hooks/use-prospects"
 import { useEmailDrafts } from "@/hooks/use-email-drafts"
 import { useIntelligence } from "@/hooks/use-intelligence"
 import { useCountries } from "@/hooks/use-countries"
@@ -10,14 +10,12 @@ import { useProspectContacts } from "@/hooks/use-prospect-contacts"
 import { EmailComposerModal } from "@/components/email-composer-modal"
 import { AIInsightsCard } from "@/components/ai-insights-card"
 import { ArchiveProspectDialog } from "@/components/archive-prospect-dialog"
-import { CommunicationLog } from "@/components/communication-log"
 import { ProspectContactsManager } from "@/components/prospect-contacts-manager"
 import { ActivityLog, type ActivityItem } from "@/components/activity-log"
 import { NextActionField } from "@/components/next-action-field"
 import { useCommunications } from "@/hooks/use-communications"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Textarea } from "@/components/ui/textarea"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import {
   Select,
@@ -26,7 +24,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { ArrowLeft, Loader2, Save, Trash2, MessageSquare, Mail, ExternalLink, Lightbulb } from "lucide-react"
+import { ArrowLeft, Loader2, Save, Trash2, Mail, ExternalLink, Lightbulb } from "lucide-react"
 import Link from "next/link"
 import type { Prospect, ProspectStatus, ProductType, ProspectType } from "@/lib/types"
 
@@ -35,7 +33,6 @@ export default function ProspectDetailPage() {
   const router = useRouter()
   const prospectId = params?.id as string
   const { prospects, loading, updateProspect, deleteProspect, archiveProspect } = useProspects()
-  const { comments, loading: commentsLoading, addComment } = useProspectComments(prospectId)
   const { drafts, loading: draftsLoading, addDraft, deleteDraft } = useEmailDrafts(prospectId)
   const { intelligenceItems, loading: intelligenceLoading, dismissItem, addIntelligenceItem } = useIntelligence(prospectId)
   const { countries } = useCountries()
@@ -43,7 +40,6 @@ export default function ProspectDetailPage() {
   const { communications, addCommunication, deleteCommunication } = useCommunications(prospectId)
 
   const [prospect, setProspect] = useState<Prospect | null>(null)
-  const [newComment, setNewComment] = useState("")
   const [isSaving, setIsSaving] = useState(false)
   const [showEmailComposer, setShowEmailComposer] = useState(false)
   const [showArchiveDialog, setShowArchiveDialog] = useState(false)
@@ -102,19 +98,6 @@ export default function ProspectDetailPage() {
     const finalReason = notes ? `${reason}\n\nNotes: ${notes}` : reason
     await archiveProspect(prospect.id, finalReason)
     router.push("/acquisition")
-  }
-
-  const handleAddComment = async () => {
-    if (newComment.trim()) {
-      await addComment(newComment, "Current User") // In future, get from auth
-      setNewComment("")
-
-      // Update last contact date
-      await updateProspect({
-        ...prospect,
-        lastContactDate: new Date().toISOString(),
-      })
-    }
   }
 
   const handleFetchNews = async () => {
@@ -412,31 +395,6 @@ export default function ProspectDetailPage() {
         </Card>
       </div>
 
-      {/* Next Action */}
-      <Card className="mb-6">
-        <CardHeader>
-          <CardTitle className="text-lg">Next Action</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div>
-            <label className="text-sm font-medium block mb-2">What's next?</label>
-            <Input
-              value={prospect.nextAction || ""}
-              onChange={(e) => setProspect({ ...prospect, nextAction: e.target.value })}
-              placeholder="e.g., Schedule demo call"
-            />
-          </div>
-          <div>
-            <label className="text-sm font-medium block mb-2">Due Date</label>
-            <Input
-              type="date"
-              value={prospect.nextActionDate || ""}
-              onChange={(e) => setProspect({ ...prospect, nextActionDate: e.target.value })}
-            />
-          </div>
-        </CardContent>
-      </Card>
-
       {/* AI Insights */}
       <div className="mb-6">
         <AIInsightsCard prospect={prospect} />
@@ -660,57 +618,6 @@ export default function ProspectDetailPage() {
               ))}
             </div>
           )}
-        </CardContent>
-      </Card>
-
-      {/* Activity Timeline */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-lg flex items-center gap-2">
-            <MessageSquare className="h-5 w-5" />
-            Activity Timeline
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            {/* Add Comment */}
-            <div className="flex gap-2">
-              <Textarea
-                placeholder="Add a comment..."
-                value={newComment}
-                onChange={(e) => setNewComment(e.target.value)}
-                className="flex-1"
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
-                    handleAddComment()
-                  }
-                }}
-              />
-              <Button onClick={handleAddComment} disabled={!newComment.trim()}>
-                Add
-              </Button>
-            </div>
-
-            {/* Comments List */}
-            {commentsLoading ? (
-              <div className="flex justify-center py-4">
-                <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-              </div>
-            ) : comments.length === 0 ? (
-              <p className="text-sm text-muted-foreground text-center py-4">No activity yet</p>
-            ) : (
-              <div className="space-y-3">
-                {comments.map((comment) => (
-                  <div key={comment.id} className="border-l-2 border-border pl-4 py-2">
-                    <p className="text-sm text-foreground">{comment.comment}</p>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      {comment.author} • {new Date(comment.createdAt).toLocaleDateString()}
-                    </p>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
         </CardContent>
       </Card>
 
