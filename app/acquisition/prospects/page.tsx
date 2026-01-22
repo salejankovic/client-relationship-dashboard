@@ -95,9 +95,6 @@ function DaysIndicator({ days }: { days?: number }) {
 }
 
 function ProspectsContent() {
-  const searchParams = useSearchParams();
-  const healthParam = searchParams.get("health");
-
   const { prospects: allProspects, loading, deleteProspect } = useProspects();
   const { countries } = useCountries();
   const [search, setSearch] = useState("");
