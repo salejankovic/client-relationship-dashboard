@@ -132,7 +132,11 @@ export default function NewProspectPage() {
           created_at: activity.date ? new Date(activity.date).toISOString() : now,
         }))
 
-        await supabase.from("communications").insert(communicationsToInsert)
+        const { error: commError } = await supabase.from("communications").insert(communicationsToInsert)
+        if (commError) {
+          console.error("Error saving communications:", commError)
+          throw new Error(`Failed to save activity log: ${commError.message}`)
+        }
       }
 
       // Add contacts if any were provided
