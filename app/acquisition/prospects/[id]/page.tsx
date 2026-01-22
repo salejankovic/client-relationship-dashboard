@@ -69,8 +69,8 @@ export default function ProspectDetailPage() {
       <div className="flex h-screen items-center justify-center">
         <div className="text-center">
           <h2 className="text-2xl font-semibold mb-2">Prospect not found</h2>
-          <Link href="/acquisition">
-            <Button>Back to Acquisition</Button>
+          <Link href="/acquisition/prospects">
+            <Button>Back to Prospects</Button>
           </Link>
         </div>
       </div>
@@ -91,14 +91,14 @@ export default function ProspectDetailPage() {
   const handleDelete = async () => {
     if (confirm(`Are you sure you want to delete ${prospect.company}?`)) {
       await deleteProspect(prospect.id)
-      router.push("/acquisition")
+      router.push("/acquisition/prospects")
     }
   }
 
   const handleArchive = async (reason: string, notes?: string) => {
     const finalReason = notes ? `${reason}\n\nNotes: ${notes}` : reason
     await archiveProspect(prospect.id, finalReason)
-    router.push("/acquisition")
+    router.push("/acquisition/prospects")
   }
 
   const handleFetchNews = async () => {
@@ -134,25 +134,30 @@ export default function ProspectDetailPage() {
     }
   }
 
-  // Transform communications to activity items
-  const activities: ActivityItem[] = communications.map((comm) => ({
-    id: comm.id,
-    comment: comm.content,
-    date: comm.createdAt.split('T')[0], // Get date part only
-    createdAt: comm.createdAt,
-  }))
+  // Transform communications to activity items and sort by date descending
+  const activities: ActivityItem[] = communications
+    .map((comm) => ({
+      id: comm.id,
+      comment: comm.content,
+      date: comm.createdAt.split('T')[0], // Get date part only
+      createdAt: comm.createdAt,
+    }))
+    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
 
   const handleAddActivity = async (comment: string, date: string) => {
+    // Use the provided date instead of current timestamp
+    const activityDate = new Date(date).toISOString()
+
     await addCommunication({
       prospectId,
       type: 'note',
       content: comment,
       direction: 'outbound',
       author: prospect.owner || 'Unknown',
+      createdAt: activityDate, // Pass the custom date
     })
 
     // Update last contact date
-    const activityDate = new Date(date).toISOString()
     await updateProspect({
       ...prospect,
       lastContactDate: activityDate,
@@ -160,8 +165,9 @@ export default function ProspectDetailPage() {
   }
 
   const handleEditActivity = async (id: string, comment: string, date: string) => {
-    // Note: We can't edit communications directly with current hook
-    // For now, we'll delete and recreate
+    // Delete and recreate with the new content and date
+    const activityDate = new Date(date).toISOString()
+
     await deleteCommunication(id)
     await addCommunication({
       prospectId,
@@ -169,6 +175,7 @@ export default function ProspectDetailPage() {
       content: comment,
       direction: 'outbound',
       author: prospect.owner || 'Unknown',
+      createdAt: activityDate, // Pass the custom date
     })
   }
 
@@ -183,7 +190,7 @@ export default function ProspectDetailPage() {
       {/* Header */}
       <div className="flex items-center justify-between mb-8">
         <div className="flex items-center gap-4">
-          <Link href="/acquisition">
+          <Link href="/acquisition/prospects">
             <Button variant="ghost" size="sm">
               <ArrowLeft className="h-4 w-4 mr-2" />
               Back

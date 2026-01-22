@@ -74,7 +74,7 @@ export function useCommunications(prospectId?: string) {
     }
   }, [prospectId])
 
-  const addCommunication = async (communication: Omit<Communication, "id" | "createdAt">) => {
+  const addCommunication = async (communication: Omit<Communication, "id" | "createdAt"> & { createdAt?: string }) => {
     try {
       const { data, error } = await supabase
         .from("communications")
@@ -88,6 +88,7 @@ export function useCommunications(prospectId?: string) {
           attendees: communication.attendees,
           author: communication.author,
           ai_summary: communication.aiSummary,
+          created_at: communication.createdAt, // Allow custom created_at
         })
         .select()
         .single()
