@@ -59,6 +59,7 @@ CREATE INDEX IF NOT EXISTS idx_prospect_contacts_primary ON prospect_contacts(is
 -- ==================================================
 -- 3. UPDATED TRIGGER FOR CONTACTS
 -- ==================================================
+DROP TRIGGER IF EXISTS update_prospect_contacts_updated_at ON prospect_contacts;
 CREATE TRIGGER update_prospect_contacts_updated_at BEFORE UPDATE ON prospect_contacts
 FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
