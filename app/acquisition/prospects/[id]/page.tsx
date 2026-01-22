@@ -7,6 +7,9 @@ import { useEmailDrafts } from "@/hooks/use-email-drafts"
 import { useIntelligence } from "@/hooks/use-intelligence"
 import { useCountries } from "@/hooks/use-countries"
 import { useProspectContacts } from "@/hooks/use-prospect-contacts"
+import { useProducts } from "@/hooks/use-products"
+import { useProspectTypes } from "@/hooks/use-prospect-types"
+import { useTeamMembers } from "@/hooks/use-team-members"
 import { EmailComposerModal } from "@/components/email-composer-modal"
 import { AIInsightsCard } from "@/components/ai-insights-card"
 import { ArchiveProspectDialog } from "@/components/archive-prospect-dialog"
@@ -39,6 +42,9 @@ export default function ProspectDetailPage() {
   const { countries } = useCountries()
   const { contacts } = useProspectContacts(prospectId)
   const { communications, addCommunication, deleteCommunication } = useCommunications(prospectId)
+  const { products, getProductConfig } = useProducts()
+  const { prospectTypes } = useProspectTypes()
+  const { teamMembers } = useTeamMembers()
 
   const [prospect, setProspect] = useState<Prospect | null>(null)
   const [isSaving, setIsSaving] = useState(false)
@@ -299,11 +305,21 @@ export default function ProspectDetailPage() {
                   <SelectValue placeholder="Select product" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="Mobile app">Mobile App</SelectItem>
-                  <SelectItem value="Website/CMS">Website/CMS</SelectItem>
-                  <SelectItem value="LitteraWorks">LitteraWorks</SelectItem>
-                  <SelectItem value="CMS">CMS</SelectItem>
-                  <SelectItem value="Other">Other</SelectItem>
+                  {products.map((p) => {
+                    const config = getProductConfig(p as any)
+                    return (
+                      <SelectItem key={p} value={p}>
+                        <div className="flex items-center gap-2">
+                          <Badge
+                            style={{ backgroundColor: config.bgColor, color: config.textColor }}
+                            className="text-xs px-2 py-0.5"
+                          >
+                            {p}
+                          </Badge>
+                        </div>
+                      </SelectItem>
+                    )
+                  })}
                 </SelectContent>
               </Select>
             </div>
@@ -317,12 +333,40 @@ export default function ProspectDetailPage() {
               />
             </div>
             <div>
+              <label className="text-sm font-medium block mb-2">Prospect Type</label>
+              <Select
+                value={prospect.prospectType || ""}
+                onValueChange={(value: ProspectType) => setProspect({ ...prospect, prospectType: value })}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select type" />
+                </SelectTrigger>
+                <SelectContent>
+                  {prospectTypes.map((t) => (
+                    <SelectItem key={t} value={t}>
+                      {t}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
               <label className="text-sm font-medium block mb-2">Owner</label>
-              <Input
+              <Select
                 value={prospect.owner || ""}
-                onChange={(e) => setProspect({ ...prospect, owner: e.target.value })}
-                placeholder="Assigned sales person"
-              />
+                onValueChange={(value: string) => setProspect({ ...prospect, owner: value })}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select owner" />
+                </SelectTrigger>
+                <SelectContent>
+                  {teamMembers.map((member) => (
+                    <SelectItem key={member} value={member}>
+                      {member}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </CardContent>
         </Card>

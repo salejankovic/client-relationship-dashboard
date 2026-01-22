@@ -30,8 +30,6 @@ import { ActivityLog, type ActivityItem } from "@/components/activity-log"
 import { NextActionField } from "@/components/next-action-field"
 import { supabase } from "@/lib/supabase"
 
-const STATUSES: ProspectStatus[] = ["Hot", "Warm", "Cold", "Lost"]
-
 export default function NewProspectPage() {
   const router = useRouter()
   const { addProspect } = useProspects()
@@ -249,11 +247,10 @@ export default function NewProspectPage() {
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
-                            {STATUSES.map((s) => (
-                              <SelectItem key={s} value={s}>
-                                {s}
-                              </SelectItem>
-                            ))}
+                            <SelectItem value="Hot">🔥 Hot</SelectItem>
+                            <SelectItem value="Warm">☀️ Warm</SelectItem>
+                            <SelectItem value="Cold">❄️ Cold</SelectItem>
+                            <SelectItem value="Lost">Lost</SelectItem>
                           </SelectContent>
                         </Select>
                       </div>
