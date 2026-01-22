@@ -113,7 +113,7 @@ function ProspectsContent() {
   );
 
   // Extract unique values for filters
-  const { products, types, countries, owners } = useMemo(() => {
+  const { products, types, countryNames, owners } = useMemo(() => {
     const productsSet = new Set<string>();
     const typesSet = new Set<string>();
     const countriesSet = new Set<string>();
@@ -129,7 +129,7 @@ function ProspectsContent() {
     return {
       products: Array.from(productsSet).sort(),
       types: Array.from(typesSet).sort(),
-      countries: Array.from(countriesSet).sort(),
+      countryNames: Array.from(countriesSet).sort(),
       owners: Array.from(ownersSet).sort(),
     };
   }, [prospects]);
@@ -301,14 +301,14 @@ function ProspectsContent() {
                   </SelectContent>
                 </Select>
               )}
-              {countries.length > 0 && (
+              {countryNames.length > 0 && (
                 <Select value={countryFilter} onValueChange={setCountryFilter}>
                   <SelectTrigger className="w-[140px] h-9 text-sm">
                     <SelectValue placeholder="Country" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">All Countries</SelectItem>
-                    {countries.map((c) => (
+                    {countryNames.map((c) => (
                       <SelectItem key={c} value={c}>
                         {c}
                       </SelectItem>
