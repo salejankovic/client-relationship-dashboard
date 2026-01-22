@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
 import {
   Select,
@@ -27,6 +26,8 @@ import { MainNav } from "@/components/main-nav"
 import { AppSidebar } from "@/components/app-sidebar"
 import { MobileNav } from "@/components/mobile-nav"
 import { InlineContactsForm, type ContactFormData } from "@/components/inline-contacts-form"
+import { ActivityLog, type ActivityItem } from "@/components/activity-log"
+import { NextActionField } from "@/components/next-action-field"
 import { supabase } from "@/lib/supabase"
 
 const STATUSES: ProspectStatus[] = ["Hot", "Warm", "Cold", "Lost"]
@@ -41,6 +42,9 @@ export default function NewProspectPage() {
 
   const [isSaving, setIsSaving] = useState(false)
   const [contacts, setContacts] = useState<ContactFormData[]>([])
+  const [activities, setActivities] = useState<ActivityItem[]>([])
+  const [nextAction, setNextAction] = useState("")
+  const [nextActionDate, setNextActionDate] = useState("")
   const [formData, setFormData] = useState({
     company: "",
     productType: "" as ProductType | "",
@@ -51,12 +55,33 @@ export default function NewProspectPage() {
     website: "",
     linkedinUrl: "",
     dealValue: "",
-    nextAction: "",
-    comment: "",
   })
 
   const handleChange = (field: string, value: string) => {
     setFormData((prev) => ({ ...prev, [field]: value }))
+  }
+
+  const handleAddActivity = (comment: string, date: string) => {
+    const newActivity: ActivityItem = {
+      id: `activity-${Date.now()}`,
+      comment,
+      date,
+    }
+    setActivities((prev) => [...prev, newActivity])
+  }
+
+  const handleEditActivity = (id: string, comment: string, date: string) => {
+    setActivities((prev) =>
+      prev.map((activity) =>
+        activity.id === id ? { ...activity, comment, date } : activity
+      )
+    )
+  }
+
+  const handleDeleteActivity = (id: string) => {
+    if (confirm("Are you sure you want to delete this activity?")) {
+      setActivities((prev) => prev.filter((activity) => activity.id !== id))
+    }
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -88,7 +113,8 @@ export default function NewProspectPage() {
         website: formData.website || undefined,
         linkedinUrl: formData.linkedinUrl || undefined,
         dealValue: formData.dealValue ? parseFloat(formData.dealValue) : undefined,
-        nextAction: formData.nextAction || undefined,
+        nextAction: nextAction || undefined,
+        nextActionDate: nextActionDate || undefined,
         lastContactDate: new Date().toISOString().split('T')[0],
         daysSinceContact: 0,
         archived: false,
@@ -96,17 +122,19 @@ export default function NewProspectPage() {
         updatedAt: now,
       })
 
-      // Add initial communication if comment is provided
-      if (formData.comment.trim()) {
-        await supabase.from("communications").insert({
-          id: `comm-${Date.now()}`,
+      // Add activities as communications
+      if (activities.length > 0) {
+        const communicationsToInsert = activities.map((activity, index) => ({
+          id: `comm-${Date.now()}-${index}`,
           prospect_id: prospectId,
           type: 'note',
-          content: formData.comment.trim(),
+          content: activity.comment,
           direction: 'outbound',
           author: formData.owner || 'Unknown',
-          created_at: now,
-        })
+          created_at: activity.date ? new Date(activity.date).toISOString() : now,
+        }))
+
+        await supabase.from("communications").insert(communicationsToInsert)
       }
 
       // Add contacts if any were provided
@@ -337,32 +365,21 @@ export default function NewProspectPage() {
                 {/* Contacts */}
                 <InlineContactsForm contacts={contacts} onChange={setContacts} />
 
-                {/* Next Steps */}
-                <div className="space-y-4">
-                  <h3 className="text-sm font-medium text-muted-foreground">Next Steps</h3>
-                  <div className="grid gap-4">
-                    <div className="grid gap-2">
-                      <Label htmlFor="nextAction">Next Action</Label>
-                      <Input
-                        id="nextAction"
-                        value={formData.nextAction}
-                        onChange={(e) => handleChange("nextAction", e.target.value)}
-                        placeholder="e.g., Schedule demo call, Send proposal"
-                      />
-                    </div>
+                {/* Next Action */}
+                <NextActionField
+                  nextAction={nextAction}
+                  nextActionDate={nextActionDate}
+                  onNextActionChange={setNextAction}
+                  onNextActionDateChange={setNextActionDate}
+                />
 
-                    <div className="grid gap-2">
-                      <Label htmlFor="comment">Initial Note</Label>
-                      <Textarea
-                        id="comment"
-                        value={formData.comment}
-                        onChange={(e) => handleChange("comment", e.target.value)}
-                        placeholder="Add initial comment or note..."
-                        rows={3}
-                      />
-                    </div>
-                  </div>
-                </div>
+                {/* Activity Log */}
+                <ActivityLog
+                  activities={activities}
+                  onAdd={handleAddActivity}
+                  onEdit={handleEditActivity}
+                  onDelete={handleDeleteActivity}
+                />
 
                 {/* Form Actions */}
                 <div className="flex justify-end gap-2 pt-4">

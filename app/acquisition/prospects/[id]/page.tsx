@@ -12,6 +12,9 @@ import { AIInsightsCard } from "@/components/ai-insights-card"
 import { ArchiveProspectDialog } from "@/components/archive-prospect-dialog"
 import { CommunicationLog } from "@/components/communication-log"
 import { ProspectContactsManager } from "@/components/prospect-contacts-manager"
+import { ActivityLog, type ActivityItem } from "@/components/activity-log"
+import { NextActionField } from "@/components/next-action-field"
+import { useCommunications } from "@/hooks/use-communications"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
@@ -37,6 +40,7 @@ export default function ProspectDetailPage() {
   const { intelligenceItems, loading: intelligenceLoading, dismissItem, addIntelligenceItem } = useIntelligence(prospectId)
   const { countries } = useCountries()
   const { contacts } = useProspectContacts(prospectId)
+  const { communications, addCommunication, deleteCommunication } = useCommunications(prospectId)
 
   const [prospect, setProspect] = useState<Prospect | null>(null)
   const [newComment, setNewComment] = useState("")
@@ -143,6 +147,50 @@ export default function ProspectDetailPage() {
       alert("Failed to fetch news. Please try again.")
     } finally {
       setIsFetchingNews(false)
+    }
+  }
+
+  // Transform communications to activity items
+  const activities: ActivityItem[] = communications.map((comm) => ({
+    id: comm.id,
+    comment: comm.content,
+    date: comm.createdAt.split('T')[0], // Get date part only
+    createdAt: comm.createdAt,
+  }))
+
+  const handleAddActivity = async (comment: string, date: string) => {
+    await addCommunication({
+      prospectId,
+      type: 'note',
+      content: comment,
+      direction: 'outbound',
+      author: prospect.owner || 'Unknown',
+    })
+
+    // Update last contact date
+    const activityDate = new Date(date).toISOString()
+    await updateProspect({
+      ...prospect,
+      lastContactDate: activityDate,
+    })
+  }
+
+  const handleEditActivity = async (id: string, comment: string, date: string) => {
+    // Note: We can't edit communications directly with current hook
+    // For now, we'll delete and recreate
+    await deleteCommunication(id)
+    await addCommunication({
+      prospectId,
+      type: 'note',
+      content: comment,
+      direction: 'outbound',
+      author: prospect.owner || 'Unknown',
+    })
+  }
+
+  const handleDeleteActivity = async (id: string) => {
+    if (confirm("Are you sure you want to delete this activity?")) {
+      await deleteCommunication(id)
     }
   }
 
@@ -508,9 +556,24 @@ export default function ProspectDetailPage() {
         <ProspectContactsManager prospectId={prospectId} />
       </div>
 
-      {/* Communication Log */}
+      {/* Next Action */}
       <div className="mb-6">
-        <CommunicationLog prospectId={prospectId} prospectEmail={prospect.email} />
+        <NextActionField
+          nextAction={prospect.nextAction || ""}
+          nextActionDate={prospect.nextActionDate || ""}
+          onNextActionChange={(value) => setProspect({ ...prospect, nextAction: value })}
+          onNextActionDateChange={(value) => setProspect({ ...prospect, nextActionDate: value })}
+        />
+      </div>
+
+      {/* Activity Log */}
+      <div className="mb-6">
+        <ActivityLog
+          activities={activities}
+          onAdd={handleAddActivity}
+          onEdit={handleEditActivity}
+          onDelete={handleDeleteActivity}
+        />
       </div>
 
       {/* Email Drafts */}
