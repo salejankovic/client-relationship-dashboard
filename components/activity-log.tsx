@@ -102,7 +102,7 @@ export function ActivityLog({
             onChange={(e) => setNewDate(e.target.value)}
             className="w-40"
           />
-          <Button onClick={handleAdd} size="icon" className="shrink-0">
+          <Button type="button" onClick={handleAdd} size="icon" className="shrink-0">
             <Plus className="h-4 w-4" />
           </Button>
         </div>
