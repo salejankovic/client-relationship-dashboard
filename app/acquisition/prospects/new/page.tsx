@@ -26,6 +26,7 @@ import Link from "next/link"
 import { MainNav } from "@/components/main-nav"
 import { AppSidebar } from "@/components/app-sidebar"
 import { MobileNav } from "@/components/mobile-nav"
+import { InlineContactsForm, type ContactFormData } from "@/components/inline-contacts-form"
 import { supabase } from "@/lib/supabase"
 
 const STATUSES: ProspectStatus[] = ["Hot", "Warm", "Cold", "Lost"]
@@ -39,6 +40,7 @@ export default function NewProspectPage() {
   const { countries } = useCountries()
 
   const [isSaving, setIsSaving] = useState(false)
+  const [contacts, setContacts] = useState<ContactFormData[]>([])
   const [formData, setFormData] = useState({
     company: "",
     productType: "" as ProductType | "",
@@ -46,9 +48,6 @@ export default function NewProspectPage() {
     prospectType: "" as ProspectType | "",
     country: "",
     status: "Warm" as ProspectStatus,
-    contactPerson: "",
-    email: "",
-    telephone: "",
     website: "",
     linkedinUrl: "",
     dealValue: "",
@@ -83,9 +82,9 @@ export default function NewProspectPage() {
         prospectType: formData.prospectType || undefined,
         country: formData.country || undefined,
         status: formData.status,
-        contactPerson: formData.contactPerson || undefined,
-        email: formData.email || undefined,
-        telephone: formData.telephone || undefined,
+        contactPerson: contacts.find(c => c.isPrimary)?.name || contacts[0]?.name || undefined,
+        email: contacts.find(c => c.isPrimary)?.email || contacts[0]?.email || undefined,
+        telephone: contacts.find(c => c.isPrimary)?.telephone || contacts[0]?.telephone || undefined,
         website: formData.website || undefined,
         linkedinUrl: formData.linkedinUrl || undefined,
         dealValue: formData.dealValue ? parseFloat(formData.dealValue) : undefined,
@@ -108,6 +107,24 @@ export default function NewProspectPage() {
           author: formData.owner || 'Unknown',
           created_at: now,
         })
+      }
+
+      // Add contacts if any were provided
+      if (contacts.length > 0) {
+        const contactsToInsert = contacts.map((contact, index) => ({
+          id: `contact-${Date.now()}-${index}`,
+          prospect_id: prospectId,
+          name: contact.name,
+          position: contact.position,
+          email: contact.email,
+          telephone: contact.telephone,
+          linkedin_url: contact.linkedinUrl,
+          is_primary: contact.isPrimary,
+          created_at: now,
+          updated_at: now,
+        }))
+
+        await supabase.from("prospect_contacts").insert(contactsToInsert)
       }
 
       // Show success message before redirecting
@@ -289,43 +306,10 @@ export default function NewProspectPage() {
                   </div>
                 </div>
 
-                {/* Contact Info */}
+                {/* Company Info */}
                 <div className="space-y-4">
-                  <h3 className="text-sm font-medium text-muted-foreground">Contact Info</h3>
+                  <h3 className="text-sm font-medium text-muted-foreground">Company Info</h3>
                   <div className="grid gap-4">
-                    <div className="grid gap-2">
-                      <Label htmlFor="contactPerson">Contact Person</Label>
-                      <Input
-                        id="contactPerson"
-                        value={formData.contactPerson}
-                        onChange={(e) => handleChange("contactPerson", e.target.value)}
-                        placeholder="e.g., Ana Petrović"
-                      />
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="grid gap-2">
-                        <Label htmlFor="email">Email</Label>
-                        <Input
-                          id="email"
-                          type="email"
-                          value={formData.email}
-                          onChange={(e) => handleChange("email", e.target.value)}
-                          placeholder="contact@company.com"
-                        />
-                      </div>
-
-                      <div className="grid gap-2">
-                        <Label htmlFor="telephone">Telephone</Label>
-                        <Input
-                          id="telephone"
-                          value={formData.telephone}
-                          onChange={(e) => handleChange("telephone", e.target.value)}
-                          placeholder="+381 11 123 4567"
-                        />
-                      </div>
-                    </div>
-
                     <div className="grid gap-2">
                       <Label htmlFor="website">Website</Label>
                       <Input
@@ -349,6 +333,9 @@ export default function NewProspectPage() {
                     </div>
                   </div>
                 </div>
+
+                {/* Contacts */}
+                <InlineContactsForm contacts={contacts} onChange={setContacts} />
 
                 {/* Next Steps */}
                 <div className="space-y-4">

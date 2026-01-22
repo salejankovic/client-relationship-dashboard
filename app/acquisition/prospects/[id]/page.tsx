@@ -5,6 +5,8 @@ import { useParams, useRouter } from "next/navigation"
 import { useProspects, useProspectComments } from "@/hooks/use-prospects"
 import { useEmailDrafts } from "@/hooks/use-email-drafts"
 import { useIntelligence } from "@/hooks/use-intelligence"
+import { useCountries } from "@/hooks/use-countries"
+import { useProspectContacts } from "@/hooks/use-prospect-contacts"
 import { EmailComposerModal } from "@/components/email-composer-modal"
 import { AIInsightsCard } from "@/components/ai-insights-card"
 import { ArchiveProspectDialog } from "@/components/archive-prospect-dialog"
@@ -33,6 +35,8 @@ export default function ProspectDetailPage() {
   const { comments, loading: commentsLoading, addComment } = useProspectComments(prospectId)
   const { drafts, loading: draftsLoading, addDraft, deleteDraft } = useEmailDrafts(prospectId)
   const { intelligenceItems, loading: intelligenceLoading, dismissItem, addIntelligenceItem } = useIntelligence(prospectId)
+  const { countries } = useCountries()
+  const { contacts } = useProspectContacts(prospectId)
 
   const [prospect, setProspect] = useState<Prospect | null>(null)
   const [newComment, setNewComment] = useState("")
@@ -179,7 +183,7 @@ export default function ProspectDetailPage() {
 
       {/* Main Content */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-        {/* Basic Info */}
+        {/* Basic Information */}
         <Card>
           <CardHeader>
             <CardTitle className="text-lg">Basic Information</CardTitle>
@@ -193,25 +197,31 @@ export default function ProspectDetailPage() {
               />
             </div>
             <div>
-              <label className="text-sm font-medium block mb-2">Contact Person</label>
-              <Input
-                value={prospect.contactPerson || ""}
-                onChange={(e) => setProspect({ ...prospect, contactPerson: e.target.value })}
-              />
+              <label className="text-sm font-medium block mb-2">Country</label>
+              <Select
+                value={prospect.country || ""}
+                onValueChange={(value) => setProspect({ ...prospect, country: value })}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select country" />
+                </SelectTrigger>
+                <SelectContent>
+                  {countries.map((country) => (
+                    <SelectItem key={country.id} value={country.name}>
+                      {country.flagEmoji && <span className="mr-2">{country.flagEmoji}</span>}
+                      {country.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <div>
-              <label className="text-sm font-medium block mb-2">Email</label>
+              <label className="text-sm font-medium block mb-2">Website</label>
               <Input
-                type="email"
-                value={prospect.email || ""}
-                onChange={(e) => setProspect({ ...prospect, email: e.target.value })}
-              />
-            </div>
-            <div>
-              <label className="text-sm font-medium block mb-2">Phone</label>
-              <Input
-                value={prospect.telephone || ""}
-                onChange={(e) => setProspect({ ...prospect, telephone: e.target.value })}
+                type="url"
+                value={prospect.website || ""}
+                onChange={(e) => setProspect({ ...prospect, website: e.target.value })}
+                placeholder="https://company.com"
               />
             </div>
             <div>
@@ -223,15 +233,6 @@ export default function ProspectDetailPage() {
                 placeholder="https://linkedin.com/company/..."
               />
             </div>
-          </CardContent>
-        </Card>
-
-        {/* Pipeline Info */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">Pipeline Details</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
             <div>
               <label className="text-sm font-medium block mb-2">Status</label>
               <Select
@@ -283,6 +284,82 @@ export default function ProspectDetailPage() {
                 placeholder="Assigned sales person"
               />
             </div>
+          </CardContent>
+        </Card>
+
+        {/* Main Contact Info */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg">Main Contact Info</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {contacts.length === 0 ? (
+              <p className="text-sm text-muted-foreground text-center py-8">
+                No contacts added yet. Add contacts below to see main contact information here.
+              </p>
+            ) : (
+              <div className="space-y-4">
+                {(() => {
+                  const primaryContact = contacts.find(c => c.isPrimary) || contacts[0]
+                  return (
+                    <>
+                      <div>
+                        <label className="text-sm font-medium block mb-2">Name</label>
+                        <div className="text-base font-medium">{primaryContact.name}</div>
+                      </div>
+                      {primaryContact.position && (
+                        <div>
+                          <label className="text-sm font-medium block mb-2">Position</label>
+                          <div className="text-base">{primaryContact.position}</div>
+                        </div>
+                      )}
+                      {primaryContact.email && (
+                        <div>
+                          <label className="text-sm font-medium block mb-2">Email</label>
+                          <a
+                            href={`mailto:${primaryContact.email}`}
+                            className="text-base text-blue-600 hover:underline"
+                          >
+                            {primaryContact.email}
+                          </a>
+                        </div>
+                      )}
+                      {primaryContact.telephone && (
+                        <div>
+                          <label className="text-sm font-medium block mb-2">Phone</label>
+                          <a
+                            href={`tel:${primaryContact.telephone}`}
+                            className="text-base text-blue-600 hover:underline"
+                          >
+                            {primaryContact.telephone}
+                          </a>
+                        </div>
+                      )}
+                      {primaryContact.linkedinUrl && (
+                        <div>
+                          <label className="text-sm font-medium block mb-2">LinkedIn</label>
+                          <a
+                            href={primaryContact.linkedinUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-base text-blue-600 hover:underline break-all"
+                          >
+                            View Profile
+                          </a>
+                        </div>
+                      )}
+                      {primaryContact.isPrimary && (
+                        <div className="pt-2 border-t">
+                          <Badge variant="default" className="bg-blue-600">
+                            Primary Contact
+                          </Badge>
+                        </div>
+                      )}
+                    </>
+                  )
+                })()}
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>
