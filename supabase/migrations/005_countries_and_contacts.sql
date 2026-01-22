@@ -69,6 +69,9 @@ FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 ALTER TABLE countries ENABLE ROW LEVEL SECURITY;
 ALTER TABLE prospect_contacts ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Allow all access to countries" ON countries;
+DROP POLICY IF EXISTS "Allow all access to prospect_contacts" ON prospect_contacts;
+
 CREATE POLICY "Allow all access to countries" ON countries FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "Allow all access to prospect_contacts" ON prospect_contacts FOR ALL USING (true) WITH CHECK (true);
 
