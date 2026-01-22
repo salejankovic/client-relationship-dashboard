@@ -88,7 +88,7 @@ export interface Prospect {
   status: ProspectStatus
   owner?: string
   source?: string
-  dealValue?: number
+  dealValue?: string
 
   // Activity Tracking
   nextAction?: string

@@ -301,11 +301,12 @@ export default function ProspectDetailPage() {
               </Select>
             </div>
             <div>
-              <label className="text-sm font-medium block mb-2">Deal Value (€)</label>
+              <label className="text-sm font-medium block mb-2">Deal Value</label>
               <Input
-                type="number"
+                type="text"
                 value={prospect.dealValue || ""}
-                onChange={(e) => setProspect({ ...prospect, dealValue: parseFloat(e.target.value) || undefined })}
+                onChange={(e) => setProspect({ ...prospect, dealValue: e.target.value || undefined })}
+                placeholder="e.g., 385€ monthly + 1,500€ one time"
               />
             </div>
             <div>

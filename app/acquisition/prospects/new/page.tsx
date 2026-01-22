@@ -112,7 +112,7 @@ export default function NewProspectPage() {
         telephone: contacts.find(c => c.isPrimary)?.telephone || contacts[0]?.telephone || undefined,
         website: formData.website || undefined,
         linkedinUrl: formData.linkedinUrl || undefined,
-        dealValue: formData.dealValue ? parseFloat(formData.dealValue) : undefined,
+        dealValue: formData.dealValue || undefined,
         nextAction: nextAction || undefined,
         nextActionDate: nextActionDate || undefined,
         lastContactDate: new Date().toISOString().split('T')[0],
@@ -302,13 +302,13 @@ export default function NewProspectPage() {
 
                     <div className="grid grid-cols-2 gap-4">
                       <div className="grid gap-2">
-                        <Label htmlFor="dealValue">Deal Value (€)</Label>
+                        <Label htmlFor="dealValue">Deal Value</Label>
                         <Input
                           id="dealValue"
-                          type="number"
+                          type="text"
                           value={formData.dealValue}
                           onChange={(e) => handleChange("dealValue", e.target.value)}
-                          placeholder="e.g., 45000"
+                          placeholder="e.g., 385€ monthly + 1,500€ one time"
                         />
                       </div>
 
