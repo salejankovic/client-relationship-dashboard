@@ -19,14 +19,15 @@ import { useProspects } from "@/hooks/use-prospects"
 import { useProducts } from "@/hooks/use-products"
 import { useTeamMembers } from "@/hooks/use-team-members"
 import { useProspectTypes } from "@/hooks/use-prospect-types"
+import { useCountries } from "@/hooks/use-countries"
 import type { ProductType, ProspectType, ProspectStatus } from "@/lib/types"
 import { ArrowLeft, Loader2 } from "lucide-react"
 import Link from "next/link"
 import { MainNav } from "@/components/main-nav"
 import { AppSidebar } from "@/components/app-sidebar"
 import { MobileNav } from "@/components/mobile-nav"
+import { supabase } from "@/lib/supabase"
 
-const COUNTRIES = ["Serbia", "Croatia", "Slovenia", "Spain", "Azerbaijan", "Ghana"]
 const STATUSES: ProspectStatus[] = ["Hot", "Warm", "Cold", "Lost"]
 
 export default function NewProspectPage() {
@@ -35,6 +36,7 @@ export default function NewProspectPage() {
   const { products, getProductConfig } = useProducts()
   const { teamMembers } = useTeamMembers()
   const { prospectTypes } = useProspectTypes()
+  const { countries } = useCountries()
 
   const [isSaving, setIsSaving] = useState(false)
   const [formData, setFormData] = useState({
@@ -48,6 +50,7 @@ export default function NewProspectPage() {
     email: "",
     telephone: "",
     website: "",
+    linkedinUrl: "",
     dealValue: "",
     nextAction: "",
     comment: "",
@@ -59,13 +62,22 @@ export default function NewProspectPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+
+    // Validate required fields
+    if (!formData.company.trim()) {
+      alert('Company name is required')
+      return
+    }
+
     setIsSaving(true)
 
     try {
       const now = new Date().toISOString()
+      const prospectId = `prospect-${Date.now()}`
+
       await addProspect({
-        id: `prospect-${Date.now()}`,
-        company: formData.company,
+        id: prospectId,
+        company: formData.company.trim(),
         productType: formData.productType || undefined,
         owner: formData.owner || undefined,
         prospectType: formData.prospectType || undefined,
@@ -75,6 +87,7 @@ export default function NewProspectPage() {
         email: formData.email || undefined,
         telephone: formData.telephone || undefined,
         website: formData.website || undefined,
+        linkedinUrl: formData.linkedinUrl || undefined,
         dealValue: formData.dealValue ? parseFloat(formData.dealValue) : undefined,
         nextAction: formData.nextAction || undefined,
         lastContactDate: new Date().toISOString().split('T')[0],
@@ -84,9 +97,25 @@ export default function NewProspectPage() {
         updatedAt: now,
       })
 
+      // Add initial communication if comment is provided
+      if (formData.comment.trim()) {
+        await supabase.from("communications").insert({
+          id: `comm-${Date.now()}`,
+          prospect_id: prospectId,
+          type: 'note',
+          content: formData.comment.trim(),
+          direction: 'outbound',
+          author: formData.owner || 'Unknown',
+          created_at: now,
+        })
+      }
+
+      // Show success message before redirecting
+      alert('Prospect saved successfully!')
       router.push("/acquisition/prospects")
     } catch (error) {
       console.error("Error adding prospect:", error)
+      alert(`Failed to save prospect: ${error instanceof Error ? error.message : 'Unknown error'}`)
     } finally {
       setIsSaving(false)
     }
@@ -215,9 +244,10 @@ export default function NewProspectPage() {
                             <SelectValue placeholder="Select country" />
                           </SelectTrigger>
                           <SelectContent>
-                            {COUNTRIES.map((c) => (
-                              <SelectItem key={c} value={c}>
-                                {c}
+                            {countries.map((country) => (
+                              <SelectItem key={country.id} value={country.name}>
+                                {country.flagEmoji && <span className="mr-2">{country.flagEmoji}</span>}
+                                {country.name}
                               </SelectItem>
                             ))}
                           </SelectContent>
@@ -304,6 +334,17 @@ export default function NewProspectPage() {
                         value={formData.website}
                         onChange={(e) => handleChange("website", e.target.value)}
                         placeholder="https://company.com"
+                      />
+                    </div>
+
+                    <div className="grid gap-2">
+                      <Label htmlFor="linkedinUrl">Company LinkedIn URL</Label>
+                      <Input
+                        id="linkedinUrl"
+                        type="url"
+                        value={formData.linkedinUrl}
+                        onChange={(e) => handleChange("linkedinUrl", e.target.value)}
+                        placeholder="https://linkedin.com/company/..."
                       />
                     </div>
                   </div>

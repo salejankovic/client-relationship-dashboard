@@ -1,123 +1,149 @@
-# Appworks Client Dashboard
+# Zlatko CRM
 
-A comprehensive CRM (Client Relationship Management) tool for managing media and sports organization clients. Built with Next.js 15, React 19, and Supabase for real-time data synchronization.
+A comprehensive CRM platform for managing client relationships and prospect acquisition, built for Appworks d.o.o.
 
 ![Next.js](https://img.shields.io/badge/Next.js-15.5.9-black)
 ![React](https://img.shields.io/badge/React-19-blue)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5-blue)
 ![Supabase](https://img.shields.io/badge/Supabase-PostgreSQL-green)
 
-## Features
+## Overview
 
-- **Client Management**: Full CRUD operations for managing clients
-- **Logo Upload**: Upload and change client logos with base64 storage
-- **Product Tracking**: Assign and track products for each client
-- **Upsell Strategy**: Plan which products to sell to clients
-- **Real-time Sync**: Live updates across all users with Supabase
-- **Team Assignment**: Assign clients to team members
-- **Activity Logging**: Track all interactions and notes
-- **Todo Management**: Organize tasks per client
-- **Responsive Design**: Beautiful UI built with shadcn/ui components
+**Zlatko** tracks both existing clients and potential prospects with features including:
 
-## Tech Stack
+- **Client Management** - Full CRUD with real-time Supabase sync
+- **Prospect Tracking** - Pipeline management with status tracking
+- **Gmail Integration** - OAuth 2.0 email import with AI summaries
+- **Communication Log** - Track emails, calls, meetings, notes
+- **Intelligence Feed** - Automated news and insights
+- **AI Features** - Gemini Pro for email summaries and insights
+- **Dynamic Settings** - Customizable products, owners, and types
 
-- **Framework**: Next.js 15.5.9 with App Router
-- **UI Library**: React 19
-- **Language**: TypeScript
-- **Styling**: Tailwind CSS 4.1.9
-- **Database**: Supabase (PostgreSQL)
-- **Components**: shadcn/ui (Radix UI primitives)
-- **Icons**: Lucide React
-
-## Getting Started
+## Quick Start
 
 ### Prerequisites
-
-- Node.js 18+ installed
-- A Supabase account and project
+- Node.js 18+
+- Supabase account
+- Google Cloud account (for Gmail integration)
 
 ### Installation
 
-1. Clone the repository:
+1. **Clone and install:**
 ```bash
 git clone https://github.com/salejankovic/client-relationship-dashboard.git
 cd client-relationship-dashboard
-```
-
-2. Install dependencies:
-```bash
 npm install
 ```
 
-3. Set up environment variables:
+2. **Environment variables:**
 
-Create a `.env.local` file in the root directory:
+Create `.env.local`:
 ```env
 NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
+GEMINI_API_KEY=your_gemini_api_key
+GOOGLE_CLIENT_ID=your_google_client_id
+GOOGLE_CLIENT_SECRET=your_google_client_secret
+NEXTAUTH_URL=http://localhost:3000
+NEXTAUTH_SECRET=your_random_secret
 ```
 
-4. Set up Supabase database:
+3. **Database setup:**
 
-Run the SQL scripts in your Supabase SQL Editor:
-- First run `supabase-setup.sql` to create the initial schema
-- Then run `supabase-migration-upsell.sql` to add the upsell_strategy column
+Run migrations in Supabase SQL Editor (in order):
+- `supabase/migrations/001_initial_schema.sql`
+- `supabase/migrations/002_client_enhancements.sql`
+- `supabase/migrations/003_email_sync_config.sql`
+- `supabase/migrations/004_add_location.sql` (optional)
 
-5. Start the development server:
+See [supabase/migrations/README.md](supabase/migrations/README.md) for details.
+
+4. **Start development:**
 ```bash
 npm run dev
+# Open http://localhost:3000
 ```
 
-6. Open [http://localhost:3001](http://localhost:3001) in your browser.
+## Tech Stack
 
-## Database Setup
+- **Framework:** Next.js 15.5.9 (App Router)
+- **UI:** React 19, TypeScript, Tailwind CSS
+- **Database:** Supabase (PostgreSQL with real-time)
+- **Components:** shadcn/ui (Radix UI primitives)
+- **AI:** Google Gemini Pro
+- **Email:** Gmail API with OAuth 2.0
+- **Icons:** Lucide React
 
-The project uses Supabase with the following tables:
+## Documentation
 
-- **clients**: Stores client information, contacts, todos, and activity logs
-- **products**: Manages available products
-- **team_members**: Tracks team members for assignment
+- **[PROJECT_STATUS.md](PROJECT_STATUS.md)** - Complete current state & architecture
+- **[PROJECT.md](PROJECT.md)** - Original project documentation
+- **[SUPABASE_SETUP.md](SUPABASE_SETUP.md)** - Database setup guide
+- **[CLAUDE_SESSION_PROMPT.md](CLAUDE_SESSION_PROMPT.md)** - For fresh AI sessions
 
-All tables include Row Level Security (RLS) policies and real-time subscriptions.
+## Deployment
 
-See `SUPABASE_SETUP.md` for detailed setup instructions.
+Deploy to Vercel:
+
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/salejankovic/client-relationship-dashboard)
+
+**Important:**
+- Repository must be PUBLIC for Vercel GitHub integration
+- Add all environment variables in Vercel dashboard
+- Configure Google OAuth redirect URIs for production URL
 
 ## Project Structure
 
 ```
-├── app/                    # Next.js app directory
-│   ├── page.tsx           # Main dashboard page
-│   ├── settings/          # Settings page
-│   └── layout.tsx         # Root layout
-├── components/            # React components
-│   ├── ui/               # shadcn/ui components
-│   ├── client-list.tsx   # Client sidebar
-│   └── client-profile.tsx # Client detail view
-├── hooks/                 # Custom React hooks
-│   ├── use-clients.ts    # Client CRUD operations
-│   ├── use-products.ts   # Product management
-│   └── use-team-members.ts
-├── lib/                   # Utilities and types
-│   ├── types.ts          # TypeScript interfaces
-│   ├── constants.ts      # Shared constants
-│   └── supabase.ts       # Supabase client
-└── public/                # Static assets
+├── app/                      # Next.js routes
+│   ├── acquisition/          # Prospects module
+│   ├── settings/             # Settings page
+│   └── api/                  # API routes (Gmail OAuth, sync)
+├── components/               # React components
+│   ├── communication-log.tsx
+│   ├── client-profile.tsx
+│   └── ui/                   # shadcn/ui
+├── hooks/                    # Data management hooks
+├── lib/                      # Utilities and types
+└── supabase/migrations/      # Database migrations
 ```
 
-## Documentation
+## Features
 
-- **PROJECT.md**: Comprehensive project documentation
-- **IMPLEMENTATION_SUMMARY.md**: Summary of implementation changes
-- **NEW_FEATURES.md**: Details on logo upload and upsell strategy features
-- **SUPABASE_SETUP.md**: Supabase setup and configuration guide
+### Client Management
+- Real-time CRUD operations
+- Logo upload (base64 storage)
+- Product assignment with custom colors
+- Contact tracking
+- Todo lists and notes
+- Activity logging
 
-## Deployment
+### Prospect Management
+- Status pipeline (Hot/Warm/Cold/Lost)
+- Archive system with reasons
+- CSV import wizard
+- Next action tracking
+- Days since contact calculation
 
-The easiest way to deploy is using [Vercel](https://vercel.com):
+### Communication Log
+- 5 types: Email, Call, Meeting, Note, LinkedIn
+- Direction tracking (inbound/outbound)
+- AI-generated summaries
+- Import from Gmail
+- Type-specific fields (duration, attendees)
 
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/salejankovic/client-relationship-dashboard)
+### Gmail Integration
+- OAuth 2.0 authentication
+- Automatic email import
+- AI summaries via Gemini
+- Token refresh handling
+- Connection status in Settings
 
-Don't forget to add your environment variables in the Vercel dashboard.
+### Intelligence Feed
+- Google News RSS
+- AI-powered insights
+- Company tracking
+- Relevance scoring
 
 ## License
 
@@ -127,6 +153,8 @@ MIT
 
 Created by Janko Sale for Appworks d.o.o.
 
+Built with assistance from [Claude Code](https://claude.ai/claude-code)
+
 ---
 
-Built with assistance from Claude Code
+**Status:** ✅ Production Ready | **Last Updated:** 2026-01-22

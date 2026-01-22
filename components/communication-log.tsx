@@ -50,6 +50,8 @@ interface CommunicationLogProps {
 export function CommunicationLog({ prospectId, prospectEmail }: CommunicationLogProps) {
   const { communications, addCommunication, deleteCommunication } = useCommunications(prospectId)
   const [showAddDialog, setShowAddDialog] = useState(false)
+  const [isSyncing, setIsSyncing] = useState(false)
+  const [syncStatus, setSyncStatus] = useState<{ imported: number; skipped: number } | null>(null)
   const [formData, setFormData] = useState({
     type: "note" as CommunicationType,
     subject: "",
@@ -96,6 +98,51 @@ export function CommunicationLog({ prospectId, prospectEmail }: CommunicationLog
     }
   }
 
+  const handleSyncEmails = async () => {
+    if (!prospectEmail) {
+      alert("No email address for this prospect")
+      return
+    }
+
+    setIsSyncing(true)
+    setSyncStatus(null)
+
+    try {
+      const response = await fetch("/api/gmail/sync", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          prospectId,
+          prospectEmail,
+        }),
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to sync emails")
+      }
+
+      setSyncStatus({
+        imported: data.imported,
+        skipped: data.skipped,
+      })
+
+      if (data.imported > 0) {
+        alert(`Successfully imported ${data.imported} email${data.imported === 1 ? "" : "s"}`)
+      } else {
+        alert("No new emails to import")
+      }
+    } catch (error) {
+      console.error("Error syncing emails:", error)
+      alert(error instanceof Error ? error.message : "Failed to sync emails. Make sure Gmail is connected in Settings.")
+    } finally {
+      setIsSyncing(false)
+    }
+  }
+
   return (
     <>
       <Card>
@@ -104,9 +151,9 @@ export function CommunicationLog({ prospectId, prospectEmail }: CommunicationLog
             <CardTitle>Communication History</CardTitle>
             <div className="flex gap-2">
               {prospectEmail && (
-                <Button size="sm" variant="outline" disabled>
+                <Button size="sm" variant="outline" onClick={handleSyncEmails} disabled={isSyncing}>
                   <Mail className="h-4 w-4 mr-2" />
-                  Import Emails
+                  {isSyncing ? "Syncing..." : "Import Emails"}
                 </Button>
               )}
               <Button size="sm" onClick={() => setShowAddDialog(true)}>

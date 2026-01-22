@@ -9,6 +9,7 @@ import { EmailComposerModal } from "@/components/email-composer-modal"
 import { AIInsightsCard } from "@/components/ai-insights-card"
 import { ArchiveProspectDialog } from "@/components/archive-prospect-dialog"
 import { CommunicationLog } from "@/components/communication-log"
+import { ProspectContactsManager } from "@/components/prospect-contacts-manager"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
@@ -213,6 +214,15 @@ export default function ProspectDetailPage() {
                 onChange={(e) => setProspect({ ...prospect, telephone: e.target.value })}
               />
             </div>
+            <div>
+              <label className="text-sm font-medium block mb-2">Company LinkedIn</label>
+              <Input
+                type="url"
+                value={prospect.linkedinUrl || ""}
+                onChange={(e) => setProspect({ ...prospect, linkedinUrl: e.target.value })}
+                placeholder="https://linkedin.com/company/..."
+              />
+            </div>
           </CardContent>
         </Card>
 
@@ -415,6 +425,11 @@ export default function ProspectDetailPage() {
           )}
         </CardContent>
       </Card>
+
+      {/* Contacts */}
+      <div className="mb-6">
+        <ProspectContactsManager prospectId={prospectId} />
+      </div>
 
       {/* Communication Log */}
       <div className="mb-6">

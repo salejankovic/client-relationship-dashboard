@@ -172,3 +172,27 @@ export interface Communication {
   createdAt: string
   aiSummary?: string
 }
+
+// ==================================================
+// COUNTRIES & CONTACTS
+// ==================================================
+
+export interface Country {
+  id: string
+  name: string
+  flagEmoji?: string
+  createdAt: string
+}
+
+export interface ProspectContact {
+  id: string
+  prospectId: string
+  name: string
+  position?: string
+  email?: string
+  telephone?: string
+  linkedinUrl?: string
+  isPrimary: boolean
+  createdAt: string
+  updatedAt: string
+}

@@ -6,12 +6,14 @@ import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
-import { Plus, Trash2, ArrowLeft } from "lucide-react"
+import { Plus, Trash2, ArrowLeft, Mail, Check, RefreshCw } from "lucide-react"
 import { useRouter } from "next/navigation"
 import type { ClientCategory } from "@/lib/types"
 import { useProducts } from "@/hooks/use-products"
 import { useTeamMembers } from "@/hooks/use-team-members"
 import { useProspectTypes } from "@/hooks/use-prospect-types"
+import { useGmailConnection } from "@/hooks/use-gmail-connection"
+import { useCountries } from "@/hooks/use-countries"
 import { MainNav } from "@/components/main-nav"
 import { AppSidebar } from "@/components/app-sidebar"
 import { MobileNav } from "@/components/mobile-nav"
@@ -21,6 +23,8 @@ export default function SettingsPage() {
   const { products, productConfigs, loading: productsLoading, addProduct: addProductToDb, deleteProduct, updateProductColors } = useProducts()
   const { teamMembers, loading: teamMembersLoading, addTeamMember: addTeamMemberToDb, deleteTeamMember } = useTeamMembers()
   const { prospectTypes, addProspectType, deleteProspectType } = useProspectTypes()
+  const { config: gmailConfig, isConnected, connectGmail, disconnectGmail } = useGmailConnection()
+  const { countries, addCountry, deleteCountry } = useCountries()
 
   const [newProduct, setNewProduct] = useState("")
   const [newProductBgColor, setNewProductBgColor] = useState("#3b82f6")
@@ -30,6 +34,8 @@ export default function SettingsPage() {
   const [editTextColor, setEditTextColor] = useState("")
   const [newTeamMember, setNewTeamMember] = useState("")
   const [newProspectType, setNewProspectType] = useState("")
+  const [newCountryName, setNewCountryName] = useState("")
+  const [newCountryFlag, setNewCountryFlag] = useState("")
 
   const addProduct = async () => {
     if (newProduct.trim() && !products.includes(newProduct.trim() as any)) {
@@ -80,6 +86,18 @@ export default function SettingsPage() {
 
   const removeBranch = async (type: string) => {
     await deleteProspectType(type)
+  }
+
+  const addCountryHandler = async () => {
+    if (newCountryName.trim()) {
+      await addCountry(newCountryName.trim(), newCountryFlag.trim() || undefined)
+      setNewCountryName("")
+      setNewCountryFlag("")
+    }
+  }
+
+  const removeCountry = async (countryId: string) => {
+    await deleteCountry(countryId)
   }
 
   return (
@@ -295,6 +313,64 @@ export default function SettingsPage() {
 
         <Card className="bg-card border-border">
           <CardHeader>
+            <CardTitle>Countries</CardTitle>
+            <CardDescription>Manage countries for prospects with flag emojis</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex flex-wrap gap-2">
+              {countries.map((country) => (
+                <Badge key={country.id} variant="secondary" className="text-sm pl-3 pr-1 py-1">
+                  {country.flagEmoji && <span className="mr-1">{country.flagEmoji}</span>}
+                  {country.name}
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-5 w-5 ml-2 hover:bg-destructive/20"
+                    onClick={() => removeCountry(country.id)}
+                  >
+                    <Trash2 className="h-3 w-3" />
+                  </Button>
+                </Badge>
+              ))}
+            </div>
+            <div className="space-y-2">
+              <div className="flex gap-2">
+                <Input
+                  placeholder="Country name..."
+                  value={newCountryName}
+                  onChange={(e) => setNewCountryName(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && addCountryHandler()}
+                  className="flex-1 bg-background border-border"
+                />
+                <Input
+                  placeholder="Flag emoji (e.g. 🇺🇸)"
+                  value={newCountryFlag}
+                  onChange={(e) => setNewCountryFlag(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && addCountryHandler()}
+                  className="w-32 bg-background border-border"
+                />
+                <Button onClick={addCountryHandler} disabled={!newCountryName.trim()}>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Add
+                </Button>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Tip: Copy flag emojis from{" "}
+                <a
+                  href="https://emojipedia.org/flags"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-blue-600 hover:underline"
+                >
+                  Emojipedia
+                </a>
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-card border-border">
+          <CardHeader>
             <CardTitle>Team Members</CardTitle>
             <CardDescription>People who can be assigned to clients</CardDescription>
           </CardHeader>
@@ -327,6 +403,69 @@ export default function SettingsPage() {
                 Add
               </Button>
             </div>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-card border-border">
+          <CardHeader>
+            <CardTitle>Gmail Integration</CardTitle>
+            <CardDescription>Connect your Gmail to automatically import emails with prospects</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {isConnected ? (
+              <>
+                <div className="flex items-center gap-3 p-4 border border-border rounded-lg bg-green-50 dark:bg-green-950/20">
+                  <Check className="h-5 w-5 text-green-600 dark:text-green-400" />
+                  <div className="flex-1">
+                    <p className="font-medium text-green-900 dark:text-green-100">Gmail Connected</p>
+                    <p className="text-sm text-green-700 dark:text-green-300">{gmailConfig?.emailAddress}</p>
+                    {gmailConfig?.lastSyncAt && (
+                      <p className="text-xs text-green-600 dark:text-green-400 mt-1">
+                        Last synced: {new Date(gmailConfig.lastSyncAt).toLocaleString()}
+                      </p>
+                    )}
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      if (confirm("Are you sure you want to disconnect Gmail?")) {
+                        disconnectGmail()
+                      }
+                    }}
+                  >
+                    Disconnect
+                  </Button>
+                </div>
+                <div className="text-sm text-muted-foreground">
+                  <p>✓ Emails will be automatically imported when you click "Import Emails" on a prospect's page</p>
+                  <p>✓ AI summaries will be generated for each email</p>
+                  <p>✓ Emails are matched to prospects by email address</p>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="flex items-center gap-3 p-4 border border-border rounded-lg">
+                  <Mail className="h-5 w-5 text-muted-foreground" />
+                  <div className="flex-1">
+                    <p className="font-medium">Gmail Not Connected</p>
+                    <p className="text-sm text-muted-foreground">
+                      Connect your Gmail to enable automatic email import
+                    </p>
+                  </div>
+                </div>
+                <Button onClick={connectGmail} className="w-full">
+                  <Mail className="h-4 w-4 mr-2" />
+                  Connect Gmail
+                </Button>
+                <div className="text-xs text-muted-foreground space-y-1">
+                  <p>• Read-only access to your emails</p>
+                  <p>• Only emails to/from prospects will be imported</p>
+                  <p>• You can disconnect anytime</p>
+                  <p>• AI-generated summaries included</p>
+                </div>
+              </>
+            )}
           </CardContent>
         </Card>
 

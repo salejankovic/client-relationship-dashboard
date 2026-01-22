@@ -39,6 +39,7 @@ import {
   Pause,
   AlertTriangle,
   Loader2,
+  Trash2,
 } from "lucide-react";
 
 type HealthStatus = "Active" | "Cooling" | "Cold" | "Frozen";
@@ -96,7 +97,7 @@ function ProspectsContent() {
   const searchParams = useSearchParams();
   const healthParam = searchParams.get("health");
 
-  const { prospects: allProspects, loading } = useProspects();
+  const { prospects: allProspects, loading, deleteProspect } = useProspects();
   const [search, setSearch] = useState("");
   const [productFilter, setProductFilter] = useState<string>("all");
   const [typeFilter, setTypeFilter] = useState<string>("all");
@@ -105,6 +106,7 @@ function ProspectsContent() {
   const [healthFilter, setHealthFilter] = useState<string>(healthParam || "all");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [selectedProspects, setSelectedProspects] = useState<string[]>([]);
+  const [lastSelectedIndex, setLastSelectedIndex] = useState<number | null>(null);
 
   // Filter out archived prospects
   const prospects = useMemo(
@@ -176,16 +178,51 @@ function ProspectsContent() {
     }
   };
 
-  const handleSelectProspect = (id: string, checked: boolean) => {
-    if (checked) {
-      setSelectedProspects([...selectedProspects, id]);
+  const handleSelectProspect = (id: string, checked: boolean, index: number, shiftKey: boolean = false) => {
+    if (shiftKey && lastSelectedIndex !== null) {
+      // Shift+click: select range
+      const startIndex = Math.min(lastSelectedIndex, index);
+      const endIndex = Math.max(lastSelectedIndex, index);
+      const rangeIds = filteredProspects.slice(startIndex, endIndex + 1).map(p => p.id);
+
+      setSelectedProspects(prev => {
+        const newSelection = new Set(prev);
+        rangeIds.forEach(rangeId => newSelection.add(rangeId));
+        return Array.from(newSelection);
+      });
+      setLastSelectedIndex(index);
     } else {
-      setSelectedProspects(selectedProspects.filter((pid) => pid !== id));
+      // Regular click
+      if (checked) {
+        setSelectedProspects([...selectedProspects, id]);
+        setLastSelectedIndex(index);
+      } else {
+        setSelectedProspects(selectedProspects.filter((pid) => pid !== id));
+        setLastSelectedIndex(null);
+      }
     }
   };
 
   const handleSelectNeedingFollowUp = () => {
     setSelectedProspects(needsFollowUp.map((p) => p.id));
+  };
+
+  const handleDeleteSelected = async () => {
+    if (selectedProspects.length === 0) return;
+
+    const confirmMessage = `Are you sure you want to delete ${selectedProspects.length} prospect${selectedProspects.length > 1 ? 's' : ''}? This action cannot be undone.`;
+
+    if (!confirm(confirmMessage)) return;
+
+    try {
+      // Delete all selected prospects
+      await Promise.all(selectedProspects.map(id => deleteProspect(id)));
+      setSelectedProspects([]);
+      alert(`Successfully deleted ${selectedProspects.length} prospect${selectedProspects.length > 1 ? 's' : ''}`);
+    } catch (error) {
+      console.error('Error deleting prospects:', error);
+      alert('Failed to delete some prospects. Please try again.');
+    }
   };
 
   if (loading) {
@@ -329,11 +366,22 @@ function ProspectsContent() {
 
           {/* Bulk Actions */}
           {selectedProspects.length > 0 && (
-            <div className="flex items-center gap-3 p-3 mb-4 bg-blue-50 border border-blue-200 rounded-lg">
-              <span className="text-sm font-medium text-blue-700">{selectedProspects.length} selected</span>
-              <Button size="sm" variant="ghost" onClick={() => setSelectedProspects([])} className="text-blue-700">
-                Clear
-              </Button>
+            <div className="flex items-center gap-3 p-3 mb-4 bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-lg">
+              <span className="text-sm font-medium text-blue-700 dark:text-blue-300">{selectedProspects.length} selected</span>
+              <div className="flex gap-2">
+                <Button
+                  size="sm"
+                  variant="destructive"
+                  onClick={handleDeleteSelected}
+                  className="h-8"
+                >
+                  <Trash2 className="w-3 h-3 mr-1.5" />
+                  Delete
+                </Button>
+                <Button size="sm" variant="ghost" onClick={() => setSelectedProspects([])} className="text-blue-700 dark:text-blue-300">
+                  Clear
+                </Button>
+              </div>
             </div>
           )}
 
@@ -372,12 +420,18 @@ function ProspectsContent() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredProspects.map((prospect) => (
+                {filteredProspects.map((prospect, index) => (
                   <TableRow key={prospect.id} className="group hover:bg-muted/30">
                     <TableCell>
                       <Checkbox
                         checked={selectedProspects.includes(prospect.id)}
-                        onCheckedChange={(checked) => handleSelectProspect(prospect.id, !!checked)}
+                        onCheckedChange={(checked) => handleSelectProspect(prospect.id, !!checked, index, false)}
+                        onClick={(e) => {
+                          if (e.shiftKey) {
+                            e.preventDefault();
+                            handleSelectProspect(prospect.id, true, index, true);
+                          }
+                        }}
                       />
                     </TableCell>
                     <TableCell>
