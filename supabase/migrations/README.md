@@ -56,6 +56,69 @@ Run these migrations in order in your Supabase SQL Editor.
 
 ---
 
+### 005_countries_and_contacts.sql
+**Purpose:** Countries and multi-contact support
+- Creates `countries` table with flag emojis
+- Creates `prospect_contacts` table for multiple contacts per prospect
+- Adds RLS policies
+- Seeds default countries
+
+**Run after:** 004_add_location.sql or 008_create_prospects_and_communications.sql
+**Note:** References prospects table, so run 008 first if starting fresh
+
+---
+
+### 006_remove_product_type_constraint.sql
+**Purpose:** Remove product type validation constraint
+- Removes CHECK constraint on product_type column
+
+**Run after:** 005_countries_and_contacts.sql
+
+---
+
+### 007_change_deal_value_to_text.sql
+**Purpose:** Allow flexible deal value descriptions
+- Changes deal_value from NUMERIC to TEXT
+- Enables values like "385€ monthly + 1,500€ one time"
+
+**Run after:** 006_remove_product_type_constraint.sql
+
+---
+
+### 008_create_prospects_and_communications.sql ⚠️ **CRITICAL**
+**Purpose:** Create core prospects and communications tables
+- Creates `prospects` table with all necessary columns
+- Creates `communications` table for activity log
+- Adds proper indexes for performance
+- Sets up RLS policies
+- Adds updated_at trigger
+
+**Run after:** 001_initial_schema.sql (needs the update_updated_at_column function)
+**IMPORTANT:** This should be run BEFORE migrations 003, 005, 006, and 007 if you're setting up a fresh database. If you already have these tables created manually, this migration is idempotent and will not overwrite existing data.
+
+**Recommended order for fresh setup:**
+1. Run 001 (creates base tables and functions)
+2. Run 002 (enhances clients)
+3. **Run 008 (creates prospects and communications)** ⬅️ NEW
+4. Run 003 (adds email fields to communications)
+5. Run 004 (adds location to clients)
+6. Run 005 (creates countries and contacts)
+7. Run 006 (removes constraint)
+8. Run 007 (changes deal_value type)
+9. Run 009 (adds custom label and status)
+
+---
+
+### 009_add_custom_label_and_status.sql
+**Purpose:** Add custom label field and "Not contacted yet" status
+- Adds `custom_label` column to prospects (for tags like "Athens trip March 2026")
+- Updates status constraint to include "Not contacted yet" option
+- Adds index for custom_label filtering
+
+**Run after:** 008_create_prospects_and_communications.sql
+
+---
+
 ## How to Run
 
 1. **Open Supabase SQL Editor:**

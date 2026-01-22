@@ -53,6 +53,7 @@ export default function NewProspectPage() {
     website: "",
     linkedinUrl: "",
     dealValue: "",
+    customLabel: "",
   })
 
   const handleChange = (field: string, value: string) => {
@@ -111,6 +112,7 @@ export default function NewProspectPage() {
         website: formData.website || undefined,
         linkedinUrl: formData.linkedinUrl || undefined,
         dealValue: formData.dealValue || undefined,
+        customLabel: formData.customLabel || undefined,
         nextAction: nextAction || undefined,
         nextActionDate: nextActionDate || undefined,
         lastContactDate: new Date().toISOString().split('T')[0],
@@ -251,6 +253,7 @@ export default function NewProspectPage() {
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
+                            <SelectItem value="Not contacted yet">✉️ Not contacted yet</SelectItem>
                             <SelectItem value="Hot">🔥 Hot</SelectItem>
                             <SelectItem value="Warm">☀️ Warm</SelectItem>
                             <SelectItem value="Cold">❄️ Cold</SelectItem>
@@ -331,6 +334,17 @@ export default function NewProspectPage() {
                           </SelectContent>
                         </Select>
                       </div>
+                    </div>
+
+                    <div className="grid gap-2">
+                      <Label htmlFor="customLabel">Custom Label</Label>
+                      <Input
+                        id="customLabel"
+                        type="text"
+                        value={formData.customLabel}
+                        onChange={(e) => handleChange("customLabel", e.target.value)}
+                        placeholder="e.g., Athens trip March 2026"
+                      />
                     </div>
                   </div>
                 </div>

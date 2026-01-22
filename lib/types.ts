@@ -51,7 +51,7 @@ export interface Client {
 // ACQUISITION MODULE TYPES
 // ==================================================
 
-export type ProspectStatus = 'Hot' | 'Warm' | 'Cold' | 'Lost'
+export type ProspectStatus = 'Not contacted yet' | 'Hot' | 'Warm' | 'Cold' | 'Lost'
 export type ProspectType = 'Media' | 'Sports Club' | 'Sports League' | 'Other'
 export type ProductType = 'Mobile app' | 'Website/CMS' | 'LitteraWorks' | 'CMS' | 'Other'
 export type IntelligenceSourceType = 'linkedin' | 'news' | 'sports' | 'job-change' | 'funding' | 'other'
@@ -89,6 +89,7 @@ export interface Prospect {
   owner?: string
   source?: string
   dealValue?: string
+  customLabel?: string
 
   // Activity Tracking
   nextAction?: string

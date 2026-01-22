@@ -288,6 +288,7 @@ export default function ProspectDetailPage() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
+                  <SelectItem value="Not contacted yet">✉️ Not contacted yet</SelectItem>
                   <SelectItem value="Hot">🔥 Hot</SelectItem>
                   <SelectItem value="Warm">☀️ Warm</SelectItem>
                   <SelectItem value="Cold">❄️ Cold</SelectItem>
@@ -367,6 +368,15 @@ export default function ProspectDetailPage() {
                   ))}
                 </SelectContent>
               </Select>
+            </div>
+            <div>
+              <label className="text-sm font-medium block mb-2">Custom Label</label>
+              <Input
+                type="text"
+                value={prospect.customLabel || ""}
+                onChange={(e) => setProspect({ ...prospect, customLabel: e.target.value || undefined })}
+                placeholder="e.g., Athens trip March 2026"
+              />
             </div>
           </CardContent>
         </Card>

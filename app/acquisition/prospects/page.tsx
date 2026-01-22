@@ -103,6 +103,7 @@ function ProspectsContent() {
   const [countryFilter, setCountryFilter] = useState<string>("all");
   const [ownerFilter, setOwnerFilter] = useState<string>("all");
   const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [customLabelFilter, setCustomLabelFilter] = useState<string>("all");
   const [selectedProspects, setSelectedProspects] = useState<string[]>([]);
   const [lastSelectedIndex, setLastSelectedIndex] = useState<number | null>(null);
 
@@ -113,17 +114,19 @@ function ProspectsContent() {
   );
 
   // Extract unique values for filters
-  const { products, types, countryNames, owners } = useMemo(() => {
+  const { products, types, countryNames, owners, customLabels } = useMemo(() => {
     const productsSet = new Set<string>();
     const typesSet = new Set<string>();
     const countriesSet = new Set<string>();
     const ownersSet = new Set<string>();
+    const customLabelsSet = new Set<string>();
 
     prospects.forEach((p) => {
       if (p.productType) productsSet.add(p.productType);
       if (p.prospectType) typesSet.add(p.prospectType);
       if (p.country) countriesSet.add(p.country);
       if (p.owner) ownersSet.add(p.owner);
+      if (p.customLabel) customLabelsSet.add(p.customLabel);
     });
 
     return {
@@ -131,6 +134,7 @@ function ProspectsContent() {
       types: Array.from(typesSet).sort(),
       countryNames: Array.from(countriesSet).sort(),
       owners: Array.from(ownersSet).sort(),
+      customLabels: Array.from(customLabelsSet).sort(),
     };
   }, [prospects]);
 
@@ -149,6 +153,7 @@ function ProspectsContent() {
         const matchesCountry = countryFilter === "all" || p.country === countryFilter;
         const matchesOwner = ownerFilter === "all" || p.owner === ownerFilter;
         const matchesStatus = statusFilter === "all" || p.status === statusFilter;
+        const matchesCustomLabel = customLabelFilter === "all" || p.customLabel === customLabelFilter;
 
         return (
           matchesSearch &&
@@ -156,11 +161,12 @@ function ProspectsContent() {
           matchesType &&
           matchesCountry &&
           matchesOwner &&
-          matchesStatus
+          matchesStatus &&
+          matchesCustomLabel
         );
       })
       .sort((a, b) => (b.daysSinceContact ?? 0) - (a.daysSinceContact ?? 0));
-  }, [prospects, search, productFilter, typeFilter, countryFilter, ownerFilter, statusFilter]);
+  }, [prospects, search, productFilter, typeFilter, countryFilter, ownerFilter, statusFilter, customLabelFilter]);
 
   const needsFollowUp = filteredProspects.filter((p) => (p.daysSinceContact ?? 0) > 14);
 
@@ -332,17 +338,33 @@ function ProspectsContent() {
                 </Select>
               )}
               <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="w-[120px] h-9 text-sm">
+                <SelectTrigger className="w-[140px] h-9 text-sm">
                   <SelectValue placeholder="Status" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Status</SelectItem>
+                  <SelectItem value="Not contacted yet">✉️ Not contacted yet</SelectItem>
                   <SelectItem value="Hot">🔥 Hot</SelectItem>
                   <SelectItem value="Warm">☀️ Warm</SelectItem>
                   <SelectItem value="Cold">❄️ Cold</SelectItem>
                   <SelectItem value="Lost">Lost</SelectItem>
                 </SelectContent>
               </Select>
+              {customLabels.length > 0 && (
+                <Select value={customLabelFilter} onValueChange={setCustomLabelFilter}>
+                  <SelectTrigger className="w-[160px] h-9 text-sm">
+                    <SelectValue placeholder="Label" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Labels</SelectItem>
+                    {customLabels.map((label) => (
+                      <SelectItem key={label} value={label}>
+                        {label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
             </div>
           </div>
 
@@ -396,6 +418,7 @@ function ProspectsContent() {
                   <TableHead>Company</TableHead>
                   <TableHead>Contact</TableHead>
                   <TableHead>Product</TableHead>
+                  <TableHead>Deal Value</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Last Contact</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
@@ -405,6 +428,7 @@ function ProspectsContent() {
                 {filteredProspects.map((prospect, index) => {
                   const countryData = countries.find(c => c.name === prospect.country);
                   const statusEmoji = {
+                    'Not contacted yet': '✉️',
                     'Hot': '🔥',
                     'Warm': '☀️',
                     'Cold': '❄️',
@@ -444,6 +468,9 @@ function ProspectsContent() {
                         {prospect.contactPerson || "-"}
                       </TableCell>
                       <TableCell>{prospect.productType && <ProductBadge product={prospect.productType} />}</TableCell>
+                      <TableCell className="text-sm">
+                        {prospect.dealValue || "-"}
+                      </TableCell>
                       <TableCell>
                         <span className="flex items-center gap-1">
                           {statusEmoji} {prospect.status}
@@ -466,7 +493,7 @@ function ProspectsContent() {
                 })}
                 {filteredProspects.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                    <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
                       No prospects found matching your filters
                     </TableCell>
                   </TableRow>
