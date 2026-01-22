@@ -26,6 +26,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { useProspects } from "@/hooks/use-prospects";
+import { useCountries } from "@/hooks/use-countries";
 import type { Prospect } from "@/lib/types";
 import {
   Search,
@@ -98,12 +99,12 @@ function ProspectsContent() {
   const healthParam = searchParams.get("health");
 
   const { prospects: allProspects, loading, deleteProspect } = useProspects();
+  const { countries } = useCountries();
   const [search, setSearch] = useState("");
   const [productFilter, setProductFilter] = useState<string>("all");
   const [typeFilter, setTypeFilter] = useState<string>("all");
   const [countryFilter, setCountryFilter] = useState<string>("all");
   const [ownerFilter, setOwnerFilter] = useState<string>("all");
-  const [healthFilter, setHealthFilter] = useState<string>(healthParam || "all");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [selectedProspects, setSelectedProspects] = useState<string[]>([]);
   const [lastSelectedIndex, setLastSelectedIndex] = useState<number | null>(null);
@@ -152,21 +153,17 @@ function ProspectsContent() {
         const matchesOwner = ownerFilter === "all" || p.owner === ownerFilter;
         const matchesStatus = statusFilter === "all" || p.status === statusFilter;
 
-        const prospectHealth = getHealthStatus(p.daysSinceContact ?? 0).toLowerCase();
-        const matchesHealth = healthFilter === "all" || prospectHealth === healthFilter;
-
         return (
           matchesSearch &&
           matchesProduct &&
           matchesType &&
           matchesCountry &&
           matchesOwner &&
-          matchesStatus &&
-          matchesHealth
+          matchesStatus
         );
       })
       .sort((a, b) => (b.daysSinceContact ?? 0) - (a.daysSinceContact ?? 0));
-  }, [prospects, search, productFilter, typeFilter, countryFilter, ownerFilter, statusFilter, healthFilter]);
+  }, [prospects, search, productFilter, typeFilter, countryFilter, ownerFilter, statusFilter]);
 
   const needsFollowUp = filteredProspects.filter((p) => (p.daysSinceContact ?? 0) > 14);
 
@@ -343,22 +340,10 @@ function ProspectsContent() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Status</SelectItem>
-                  <SelectItem value="Hot">Hot</SelectItem>
-                  <SelectItem value="Warm">Warm</SelectItem>
-                  <SelectItem value="Cold">Cold</SelectItem>
+                  <SelectItem value="Hot">🔥 Hot</SelectItem>
+                  <SelectItem value="Warm">☀️ Warm</SelectItem>
+                  <SelectItem value="Cold">❄️ Cold</SelectItem>
                   <SelectItem value="Lost">Lost</SelectItem>
-                </SelectContent>
-              </Select>
-              <Select value={healthFilter} onValueChange={setHealthFilter}>
-                <SelectTrigger className="w-[120px] h-9 text-sm">
-                  <SelectValue placeholder="Health" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Health</SelectItem>
-                  <SelectItem value="active">Active</SelectItem>
-                  <SelectItem value="cooling">Cooling</SelectItem>
-                  <SelectItem value="cold">Cold</SelectItem>
-                  <SelectItem value="frozen">Frozen</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -411,61 +396,80 @@ function ProspectsContent() {
                       onCheckedChange={handleSelectAll}
                     />
                   </TableHead>
-                  <TableHead className="w-12"></TableHead>
                   <TableHead>Company</TableHead>
                   <TableHead>Contact</TableHead>
                   <TableHead>Product</TableHead>
-                  <TableHead>Last</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Last Contact</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredProspects.map((prospect, index) => (
-                  <TableRow key={prospect.id} className="group hover:bg-muted/30">
-                    <TableCell>
-                      <Checkbox
-                        checked={selectedProspects.includes(prospect.id)}
-                        onCheckedChange={(checked) => handleSelectProspect(prospect.id, !!checked, index, false)}
-                        onClick={(e) => {
-                          if (e.shiftKey) {
-                            e.preventDefault();
-                            handleSelectProspect(prospect.id, true, index, true);
-                          }
-                        }}
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <HealthIndicator daysSinceContact={prospect.daysSinceContact} />
-                    </TableCell>
-                    <TableCell>
-                      <Link
-                        href={`/acquisition/prospects/${prospect.id}`}
-                        className="font-medium hover:text-blue-600 transition-colors"
-                      >
-                        {prospect.company}
-                      </Link>
-                    </TableCell>
-                    <TableCell className="text-muted-foreground">
-                      {prospect.contactPerson || "-"}
-                    </TableCell>
-                    <TableCell>{prospect.productType && <ProductBadge product={prospect.productType} />}</TableCell>
-                    <TableCell>
-                      <DaysIndicator days={prospect.daysSinceContact} />
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex items-center justify-end gap-1">
-                        <Link href={`/acquisition/prospects/${prospect.id}`}>
-                          <Button size="sm" variant="ghost" className="h-8 w-8 p-0" title="View">
-                            <Eye className="w-4 h-4" />
-                          </Button>
-                        </Link>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
+                {filteredProspects.map((prospect, index) => {
+                  const countryData = countries.find(c => c.name === prospect.country);
+                  const statusEmoji = {
+                    'Hot': '🔥',
+                    'Warm': '☀️',
+                    'Cold': '❄️',
+                    'Lost': ''
+                  }[prospect.status] || '';
+
+                  return (
+                    <TableRow key={prospect.id} className="group hover:bg-muted/30">
+                      <TableCell>
+                        <Checkbox
+                          checked={selectedProspects.includes(prospect.id)}
+                          onCheckedChange={(checked) => handleSelectProspect(prospect.id, !!checked, index, false)}
+                          onClick={(e) => {
+                            if (e.shiftKey) {
+                              e.preventDefault();
+                              handleSelectProspect(prospect.id, true, index, true);
+                            }
+                          }}
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          {countryData?.flagEmoji && (
+                            <span className="text-lg" title={prospect.country}>
+                              {countryData.flagEmoji}
+                            </span>
+                          )}
+                          <Link
+                            href={`/acquisition/prospects/${prospect.id}`}
+                            className="font-medium hover:text-blue-600 transition-colors"
+                          >
+                            {prospect.company}
+                          </Link>
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-muted-foreground">
+                        {prospect.contactPerson || "-"}
+                      </TableCell>
+                      <TableCell>{prospect.productType && <ProductBadge product={prospect.productType} />}</TableCell>
+                      <TableCell>
+                        <span className="flex items-center gap-1">
+                          {statusEmoji} {prospect.status}
+                        </span>
+                      </TableCell>
+                      <TableCell>
+                        <DaysIndicator days={prospect.daysSinceContact} /> ago
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex items-center justify-end gap-1">
+                          <Link href={`/acquisition/prospects/${prospect.id}`}>
+                            <Button size="sm" variant="ghost" className="h-8 w-8 p-0" title="View">
+                              <Eye className="w-4 w-4" />
+                            </Button>
+                          </Link>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
                 {filteredProspects.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                    <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
                       No prospects found matching your filters
                     </TableCell>
                   </TableRow>
