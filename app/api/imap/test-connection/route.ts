@@ -18,6 +18,10 @@ export async function POST(request: NextRequest) {
         port: imapPort,
         tls: useSsl,
         authTimeout: 10000,
+        tlsOptions: {
+          rejectUnauthorized: false, // Allow self-signed certificates
+          servername: imapHost, // SNI support
+        },
       },
     }
 
