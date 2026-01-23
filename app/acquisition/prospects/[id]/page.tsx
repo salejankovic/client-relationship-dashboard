@@ -195,7 +195,9 @@ export default function ProspectDetailPage() {
   }
 
   // Transform communications to activity items and sort by date descending
+  // Only include notes, not emails (emails are shown in Previous Communication section)
   const activities: ActivityItem[] = communications
+    .filter((comm) => comm.type === 'note')
     .map((comm) => ({
       id: comm.id,
       comment: comm.content,
