@@ -529,6 +529,23 @@ export default function SettingsPage() {
               <div className="border border-border rounded-lg p-4 space-y-4">
                 <h4 className="font-medium">Add Email Account</h4>
 
+                {/* Gmail Warning */}
+                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 space-y-2">
+                  <p className="text-sm font-medium text-yellow-900">⚠️ Important for Gmail Users</p>
+                  <p className="text-xs text-yellow-800">
+                    Gmail requires special setup:
+                  </p>
+                  <ol className="text-xs text-yellow-800 space-y-1 ml-4 list-decimal">
+                    <li>Enable 2-Step Verification on your Google account</li>
+                    <li>Generate an App Password at: <a href="https://myaccount.google.com/apppasswords" target="_blank" rel="noopener noreferrer" className="underline">myaccount.google.com/apppasswords</a></li>
+                    <li>Use the 16-character App Password (not your Gmail password)</li>
+                    <li>Enable IMAP in Gmail settings if not already enabled</li>
+                  </ol>
+                  <p className="text-xs text-yellow-800 font-medium mt-2">
+                    Without these steps, connection will fail or timeout.
+                  </p>
+                </div>
+
                 <div>
                   <Label htmlFor="accountName">Account Name *</Label>
                   <Input

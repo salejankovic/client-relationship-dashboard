@@ -73,7 +73,8 @@ export async function POST(request: NextRequest) {
             host: account.imap_host,
             port: account.imap_port,
             tls: account.use_ssl,
-            authTimeout: 10000,
+            authTimeout: 30000,
+            connTimeout: 30000,
             tlsOptions: {
               rejectUnauthorized: false, // Allow self-signed certificates
               servername: account.imap_host, // SNI support

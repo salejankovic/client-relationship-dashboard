@@ -17,7 +17,8 @@ export async function POST(request: NextRequest) {
         host: imapHost,
         port: imapPort,
         tls: useSsl,
-        authTimeout: 10000,
+        authTimeout: 30000,
+        connTimeout: 30000,
         tlsOptions: {
           rejectUnauthorized: false, // Allow self-signed certificates
           servername: imapHost, // SNI support
@@ -44,12 +45,23 @@ export async function POST(request: NextRequest) {
     let errorMessage = "Connection failed. Please check your settings."
 
     if (error instanceof Error) {
-      if (error.message.includes("AUTHENTICATIONFAILED")) {
-        errorMessage = "Authentication failed. Please check your username and password."
-      } else if (error.message.includes("ETIMEDOUT") || error.message.includes("ECONNREFUSED")) {
-        errorMessage = "Cannot connect to server. Please check host and port."
-      } else if (error.message.includes("Invalid credentials")) {
-        errorMessage = "Invalid credentials. For Gmail, you may need an App Password."
+      const msg = error.message.toLowerCase()
+      const isGmail = imapHost.toLowerCase().includes("gmail")
+
+      if (msg.includes("authenticationfailed") || msg.includes("invalid credentials") || msg.includes("application-specific password")) {
+        if (isGmail) {
+          errorMessage = "Gmail authentication failed. You must:\n\n1. Enable 2-Step Verification on your Google account\n2. Generate an App Password at: myaccount.google.com/apppasswords\n3. Use the App Password (not your regular Gmail password)\n\nRegular Gmail passwords don't work with IMAP."
+        } else {
+          errorMessage = "Authentication failed. Please check your username and password."
+        }
+      } else if (msg.includes("etimedout") || msg.includes("timeout")) {
+        if (isGmail) {
+          errorMessage = "Connection timed out. This usually means:\n\n1. You're using your regular Gmail password instead of an App Password\n2. 2-Step Verification is not enabled on your Google account\n3. IMAP access is disabled in Gmail settings\n\nPlease enable 2-Step Verification and create an App Password."
+        } else {
+          errorMessage = "Connection timed out. Please check:\n- Host and port are correct\n- Your firewall allows IMAP connections\n- The email server is accessible"
+        }
+      } else if (msg.includes("econnrefused")) {
+        errorMessage = "Connection refused. Please verify:\n- IMAP host: " + imapHost + "\n- IMAP port: " + imapPort + "\n- SSL/TLS setting"
       } else {
         errorMessage = error.message
       }
