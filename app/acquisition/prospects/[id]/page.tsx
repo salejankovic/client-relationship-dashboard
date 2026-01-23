@@ -51,6 +51,7 @@ export default function ProspectDetailPage() {
   const [showEmailComposer, setShowEmailComposer] = useState(false)
   const [showArchiveDialog, setShowArchiveDialog] = useState(false)
   const [isFetchingNews, setIsFetchingNews] = useState(false)
+  const [isFetchingEmails, setIsFetchingEmails] = useState(false)
 
   useEffect(() => {
     const found = prospects.find((p) => p.id === prospectId)
@@ -137,6 +138,46 @@ export default function ProspectDetailPage() {
       alert("Failed to fetch news. Please try again.")
     } finally {
       setIsFetchingNews(false)
+    }
+  }
+
+  const handleFetchEmails = async () => {
+    // Get primary contact email
+    const primaryContact = contacts.find(c => c.isPrimary) || contacts[0]
+    if (!primaryContact || !primaryContact.email) {
+      alert("No contact email found. Please add a contact with an email address first.")
+      return
+    }
+
+    setIsFetchingEmails(true)
+    try {
+      const response = await fetch("/api/gmail/sync", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          prospectId: prospect.id,
+          prospectEmail: primaryContact.email,
+        }),
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to sync emails")
+      }
+
+      if (data.imported > 0) {
+        alert(`Successfully imported ${data.imported} email(s)! ${data.skipped} were already imported.`)
+      } else if (data.skipped > 0) {
+        alert(`All ${data.skipped} emails were already imported.`)
+      } else {
+        alert("No emails found for this contact.")
+      }
+    } catch (error) {
+      console.error("Error fetching emails:", error)
+      alert(error instanceof Error ? error.message : "Failed to fetch emails. Make sure Gmail is connected in Settings.")
+    } finally {
+      setIsFetchingEmails(false)
     }
   }
 
@@ -596,6 +637,88 @@ export default function ProspectDetailPage() {
           onDelete={handleDeleteActivity}
         />
       </div>
+
+      {/* Previous Communication (Emails) */}
+      <Card className="mb-6">
+        <CardHeader>
+          <CardTitle className="text-lg flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Mail className="h-5 w-5" />
+              Previous Communication
+            </div>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={handleFetchEmails}
+              disabled={isFetchingEmails}
+              className="bg-green-50 hover:bg-green-100 text-green-600 border-green-200"
+            >
+              {isFetchingEmails ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Fetching...
+                </>
+              ) : (
+                <>
+                  <Mail className="h-4 w-4 mr-2" />
+                  Fetch Emails
+                </>
+              )}
+            </Button>
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {(() => {
+            const emailCommunications = communications.filter(c => c.type === 'email')
+
+            if (emailCommunications.length === 0) {
+              return (
+                <p className="text-sm text-muted-foreground text-center py-4">
+                  No emails synced yet. Click "Fetch Emails" to import emails from Gmail.
+                </p>
+              )
+            }
+
+            return (
+              <div className="space-y-3">
+                {emailCommunications.map((email) => (
+                  <div key={email.id} className="border rounded-lg p-4 space-y-2">
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-1">
+                          <Badge variant={email.direction === 'inbound' ? 'default' : 'secondary'}>
+                            {email.direction === 'inbound' ? '📥 Received' : '📤 Sent'}
+                          </Badge>
+                          <span className="text-xs text-muted-foreground">
+                            {new Date(email.createdAt).toLocaleDateString()} {new Date(email.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          </span>
+                        </div>
+                        <h4 className="font-medium text-sm">{email.subject || '(No Subject)'}</h4>
+                        {email.aiSummary && (
+                          <div className="bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-lg p-3 mt-2">
+                            <div className="flex items-start gap-2">
+                              <Lightbulb className="h-4 w-4 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" />
+                              <p className="text-sm text-blue-800 dark:text-blue-200">{email.aiSummary}</p>
+                            </div>
+                          </div>
+                        )}
+                        {email.content && !email.aiSummary && (
+                          <p className="text-sm text-muted-foreground mt-2 line-clamp-3">
+                            {email.content}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-between text-xs text-muted-foreground pt-2 border-t">
+                      <span>From: {email.author}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )
+          })()}
+        </CardContent>
+      </Card>
 
       {/* Email Drafts */}
       <Card className="mb-6">
