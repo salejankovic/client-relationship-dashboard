@@ -175,7 +175,13 @@ export default function ProspectDetailPage() {
       }
     } catch (error) {
       console.error("Error fetching emails:", error)
-      alert(error instanceof Error ? error.message : "Failed to fetch emails. Make sure Gmail is connected in Settings.")
+      const errorMessage = error instanceof Error ? error.message : "Failed to fetch emails"
+
+      if (errorMessage.includes("Gmail not connected")) {
+        alert("Gmail not connected.\n\nPlease go to Settings and click 'Connect Gmail' to enable email sync.")
+      } else {
+        alert(errorMessage)
+      }
     } finally {
       setIsFetchingEmails(false)
     }
