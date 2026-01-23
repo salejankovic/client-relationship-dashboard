@@ -52,6 +52,7 @@ export default function ProspectDetailPage() {
   const [showArchiveDialog, setShowArchiveDialog] = useState(false)
   const [isFetchingNews, setIsFetchingNews] = useState(false)
   const [isFetchingEmails, setIsFetchingEmails] = useState(false)
+  const [emailsToShow, setEmailsToShow] = useState(10)
 
   useEffect(() => {
     const found = prospects.find((p) => p.id === prospectId)
@@ -681,7 +682,9 @@ export default function ProspectDetailPage() {
         </CardHeader>
         <CardContent>
           {(() => {
-            const emailCommunications = communications.filter(c => c.type === 'email')
+            const emailCommunications = communications
+              .filter(c => c.type === 'email')
+              .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
 
             if (emailCommunications.length === 0) {
               return (
@@ -691,9 +694,12 @@ export default function ProspectDetailPage() {
               )
             }
 
+            const visibleEmails = emailCommunications.slice(0, emailsToShow)
+            const hasMore = emailCommunications.length > emailsToShow
+
             return (
               <div className="space-y-3">
-                {emailCommunications.map((email) => (
+                {visibleEmails.map((email) => (
                   <div key={email.id} className="border rounded-lg p-4 space-y-2">
                     <div className="flex items-start justify-between">
                       <div className="flex-1">
@@ -726,6 +732,17 @@ export default function ProspectDetailPage() {
                     </div>
                   </div>
                 ))}
+                {hasMore && (
+                  <div className="text-center pt-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setEmailsToShow(prev => prev + 10)}
+                    >
+                      Load More ({emailCommunications.length - emailsToShow} remaining)
+                    </Button>
+                  </div>
+                )}
               </div>
             )
           })()}
