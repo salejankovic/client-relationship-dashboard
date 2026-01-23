@@ -6,13 +6,12 @@ import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
-import { Plus, Trash2, ArrowLeft, Mail, Check, RefreshCw } from "lucide-react"
+import { Plus, Trash2, ArrowLeft, Check } from "lucide-react"
 import { useRouter } from "next/navigation"
-import type { ClientCategory } from "@/lib/types"
 import { useProducts } from "@/hooks/use-products"
 import { useTeamMembers } from "@/hooks/use-team-members"
 import { useProspectTypes } from "@/hooks/use-prospect-types"
-import { useGmailConnection } from "@/hooks/use-gmail-connection"
+import { useEmailAccounts } from "@/hooks/use-email-accounts"
 import { useCountries } from "@/hooks/use-countries"
 import { MainNav } from "@/components/main-nav"
 import { AppSidebar } from "@/components/app-sidebar"
@@ -23,7 +22,7 @@ export default function SettingsPage() {
   const { products, productConfigs, loading: productsLoading, addProduct: addProductToDb, deleteProduct, updateProductColors } = useProducts()
   const { teamMembers, loading: teamMembersLoading, addTeamMember: addTeamMemberToDb, deleteTeamMember } = useTeamMembers()
   const { prospectTypes, addProspectType, deleteProspectType } = useProspectTypes()
-  const { config: gmailConfig, isConnected, connectGmail, disconnectGmail } = useGmailConnection()
+  const { accounts: emailAccounts, addAccount, deleteAccount, testConnection } = useEmailAccounts()
   const { countries, addCountry, deleteCountry } = useCountries()
 
   const [newProduct, setNewProduct] = useState("")
@@ -36,6 +35,18 @@ export default function SettingsPage() {
   const [newProspectType, setNewProspectType] = useState("")
   const [newCountryName, setNewCountryName] = useState("")
   const [newCountryFlag, setNewCountryFlag] = useState("")
+  const [showAddEmailAccount, setShowAddEmailAccount] = useState(false)
+  const [newEmailAccount, setNewEmailAccount] = useState({
+    accountName: "",
+    emailAddress: "",
+    imapHost: "",
+    imapPort: 993,
+    imapUsername: "",
+    imapPassword: "",
+    useSsl: true,
+  })
+  const [isTestingConnection, setIsTestingConnection] = useState(false)
+  const [isSavingAccount, setIsSavingAccount] = useState(false)
 
   const addProduct = async () => {
     if (newProduct.trim() && !products.includes(newProduct.trim() as any)) {
@@ -98,6 +109,56 @@ export default function SettingsPage() {
 
   const removeCountry = async (countryId: string) => {
     await deleteCountry(countryId)
+  }
+
+  const handleTestConnection = async () => {
+    setIsTestingConnection(true)
+    try {
+      await testConnection({ ...newEmailAccount, isActive: true })
+      alert("Connection successful! Your IMAP settings are correct.")
+    } catch (error) {
+      alert(error instanceof Error ? error.message : "Connection test failed")
+    } finally {
+      setIsTestingConnection(false)
+    }
+  }
+
+  const handleSaveEmailAccount = async () => {
+    if (!newEmailAccount.accountName || !newEmailAccount.emailAddress || !newEmailAccount.imapHost || !newEmailAccount.imapUsername || !newEmailAccount.imapPassword) {
+      alert("Please fill in all required fields")
+      return
+    }
+
+    setIsSavingAccount(true)
+    try {
+      await addAccount({
+        ...newEmailAccount,
+        isActive: true,
+      })
+
+      // Reset form
+      setNewEmailAccount({
+        accountName: "",
+        emailAddress: "",
+        imapHost: "",
+        imapPort: 993,
+        imapUsername: "",
+        imapPassword: "",
+        useSsl: true,
+      })
+      setShowAddEmailAccount(false)
+      alert("Email account added successfully!")
+    } catch (error) {
+      alert(error instanceof Error ? error.message : "Failed to add email account")
+    } finally {
+      setIsSavingAccount(false)
+    }
+  }
+
+  const handleDeleteEmailAccount = async (accountId: string) => {
+    if (confirm("Are you sure you want to delete this email account?")) {
+      await deleteAccount(accountId)
+    }
   }
 
   return (
@@ -408,64 +469,193 @@ export default function SettingsPage() {
 
         <Card className="bg-card border-border">
           <CardHeader>
-            <CardTitle>Gmail Integration</CardTitle>
-            <CardDescription>Connect your Gmail to automatically import emails with prospects</CardDescription>
+            <CardTitle>Email Accounts (IMAP)</CardTitle>
+            <CardDescription>Connect multiple email accounts for automatic email sync</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            {isConnected ? (
-              <>
-                <div className="flex items-center gap-3 p-4 border border-border rounded-lg bg-green-50 dark:bg-green-950/20">
-                  <Check className="h-5 w-5 text-green-600 dark:text-green-400" />
-                  <div className="flex-1">
-                    <p className="font-medium text-green-900 dark:text-green-100">Gmail Connected</p>
-                    <p className="text-sm text-green-700 dark:text-green-300">{gmailConfig?.emailAddress}</p>
-                    {gmailConfig?.lastSyncAt && (
-                      <p className="text-xs text-green-600 dark:text-green-400 mt-1">
-                        Last synced: {new Date(gmailConfig.lastSyncAt).toLocaleString()}
-                      </p>
-                    )}
+            {/* Existing Accounts */}
+            {emailAccounts.length > 0 && (
+              <div className="space-y-3">
+                {emailAccounts.map((account) => (
+                  <div key={account.id} className="border border-border rounded-lg p-4">
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-1">
+                          <p className="font-medium">{account.accountName}</p>
+                          <Badge variant={account.isActive ? "default" : "secondary"}>
+                            {account.isActive ? "Active" : "Inactive"}
+                          </Badge>
+                          {account.lastSyncStatus === "success" && (
+                            <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
+                              <Check className="h-3 w-3 mr-1" />
+                              Synced
+                            </Badge>
+                          )}
+                          {account.lastSyncStatus === "error" && (
+                            <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200">
+                              Error
+                            </Badge>
+                          )}
+                        </div>
+                        <p className="text-sm text-muted-foreground">{account.emailAddress}</p>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          {account.imapHost}:{account.imapPort} {account.useSsl ? "(SSL)" : "(TLS)"}
+                        </p>
+                        {account.lastSyncAt && (
+                          <p className="text-xs text-muted-foreground mt-1">
+                            Last synced: {new Date(account.lastSyncAt).toLocaleString()}
+                          </p>
+                        )}
+                        {account.lastSyncError && (
+                          <p className="text-xs text-red-600 mt-1">Error: {account.lastSyncError}</p>
+                        )}
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="hover:bg-destructive/20"
+                        onClick={() => handleDeleteEmailAccount(account.id)}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
                   </div>
+                ))}
+              </div>
+            )}
+
+            {/* Add New Account Form */}
+            {showAddEmailAccount ? (
+              <div className="border border-border rounded-lg p-4 space-y-4">
+                <h4 className="font-medium">Add Email Account</h4>
+
+                <div>
+                  <Label htmlFor="accountName">Account Name *</Label>
+                  <Input
+                    id="accountName"
+                    placeholder="e.g., Work Gmail, Sales Email"
+                    value={newEmailAccount.accountName}
+                    onChange={(e) => setNewEmailAccount({ ...newEmailAccount, accountName: e.target.value })}
+                    className="mt-1"
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="emailAddress">Email Address *</Label>
+                  <Input
+                    id="emailAddress"
+                    type="email"
+                    placeholder="your@email.com"
+                    value={newEmailAccount.emailAddress}
+                    onChange={(e) => setNewEmailAccount({ ...newEmailAccount, emailAddress: e.target.value })}
+                    className="mt-1"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="imapHost">IMAP Host *</Label>
+                    <Input
+                      id="imapHost"
+                      placeholder="imap.gmail.com"
+                      value={newEmailAccount.imapHost}
+                      onChange={(e) => setNewEmailAccount({ ...newEmailAccount, imapHost: e.target.value })}
+                      className="mt-1"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="imapPort">IMAP Port *</Label>
+                    <Input
+                      id="imapPort"
+                      type="number"
+                      value={newEmailAccount.imapPort}
+                      onChange={(e) => setNewEmailAccount({ ...newEmailAccount, imapPort: parseInt(e.target.value) })}
+                      className="mt-1"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <Label htmlFor="imapUsername">Username *</Label>
+                  <Input
+                    id="imapUsername"
+                    placeholder="Usually same as email address"
+                    value={newEmailAccount.imapUsername}
+                    onChange={(e) => setNewEmailAccount({ ...newEmailAccount, imapUsername: e.target.value })}
+                    className="mt-1"
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="imapPassword">Password *</Label>
+                  <Input
+                    id="imapPassword"
+                    type="password"
+                    placeholder="For Gmail, use App Password"
+                    value={newEmailAccount.imapPassword}
+                    onChange={(e) => setNewEmailAccount({ ...newEmailAccount, imapPassword: e.target.value })}
+                    className="mt-1"
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Gmail users: Create an App Password at{" "}
+                    <a
+                      href="https://myaccount.google.com/apppasswords"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-blue-600 hover:underline"
+                    >
+                      myaccount.google.com/apppasswords
+                    </a>
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    id="useSsl"
+                    checked={newEmailAccount.useSsl}
+                    onChange={(e) => setNewEmailAccount({ ...newEmailAccount, useSsl: e.target.checked })}
+                    className="rounded"
+                  />
+                  <Label htmlFor="useSsl">Use SSL (recommended)</Label>
+                </div>
+
+                <div className="flex gap-2">
                   <Button
                     variant="outline"
-                    size="sm"
-                    onClick={() => {
-                      if (confirm("Are you sure you want to disconnect Gmail?")) {
-                        disconnectGmail()
-                      }
-                    }}
+                    onClick={handleTestConnection}
+                    disabled={isTestingConnection}
                   >
-                    Disconnect
+                    {isTestingConnection ? "Testing..." : "Test Connection"}
+                  </Button>
+                  <Button
+                    onClick={handleSaveEmailAccount}
+                    disabled={isSavingAccount}
+                    className="flex-1"
+                  >
+                    {isSavingAccount ? "Saving..." : "Save Account"}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => setShowAddEmailAccount(false)}
+                  >
+                    Cancel
                   </Button>
                 </div>
-                <div className="text-sm text-muted-foreground">
-                  <p>✓ Emails will be automatically imported when you click "Import Emails" on a prospect's page</p>
-                  <p>✓ AI summaries will be generated for each email</p>
-                  <p>✓ Emails are matched to prospects by email address</p>
-                </div>
-              </>
+              </div>
             ) : (
-              <>
-                <div className="flex items-center gap-3 p-4 border border-border rounded-lg">
-                  <Mail className="h-5 w-5 text-muted-foreground" />
-                  <div className="flex-1">
-                    <p className="font-medium">Gmail Not Connected</p>
-                    <p className="text-sm text-muted-foreground">
-                      Connect your Gmail to enable automatic email import
-                    </p>
-                  </div>
-                </div>
-                <Button onClick={connectGmail} className="w-full">
-                  <Mail className="h-4 w-4 mr-2" />
-                  Connect Gmail
-                </Button>
-                <div className="text-xs text-muted-foreground space-y-1">
-                  <p>• Read-only access to your emails</p>
-                  <p>• Only emails to/from prospects will be imported</p>
-                  <p>• You can disconnect anytime</p>
-                  <p>• AI-generated summaries included</p>
-                </div>
-              </>
+              <Button onClick={() => setShowAddEmailAccount(true)} className="w-full">
+                <Plus className="h-4 w-4 mr-2" />
+                Add Email Account
+              </Button>
             )}
+
+            <div className="text-xs text-muted-foreground space-y-1 pt-4 border-t">
+              <p>• Works with Gmail, Outlook, and any IMAP server</p>
+              <p>• Add multiple accounts from different providers</p>
+              <p>• AI summaries generated for all emails</p>
+              <p>• Emails matched to prospects automatically</p>
+            </div>
           </CardContent>
         </Card>
 

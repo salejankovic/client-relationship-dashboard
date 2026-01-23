@@ -151,7 +151,7 @@ export default function ProspectDetailPage() {
 
     setIsFetchingEmails(true)
     try {
-      const response = await fetch("/api/gmail/sync", {
+      const response = await fetch("/api/imap/sync", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -167,18 +167,24 @@ export default function ProspectDetailPage() {
       }
 
       if (data.imported > 0) {
-        alert(`Successfully imported ${data.imported} email(s)! ${data.skipped} were already imported.`)
+        const accountsText = data.accounts > 1 ? `from ${data.accounts} accounts` : ""
+        alert(`Successfully imported ${data.imported} email(s) ${accountsText}! ${data.skipped} were already imported.`)
       } else if (data.skipped > 0) {
         alert(`All ${data.skipped} emails were already imported.`)
       } else {
         alert("No emails found for this contact.")
       }
+
+      if (data.errors && data.errors.length > 0) {
+        console.error("Some accounts had errors:", data.errors)
+        alert(`Note: Some email accounts had errors:\n${data.errors.join("\n")}`)
+      }
     } catch (error) {
       console.error("Error fetching emails:", error)
       const errorMessage = error instanceof Error ? error.message : "Failed to fetch emails"
 
-      if (errorMessage.includes("Gmail not connected")) {
-        alert("Gmail not connected.\n\nPlease go to Settings and click 'Connect Gmail' to enable email sync.")
+      if (errorMessage.includes("No email accounts configured")) {
+        alert("No email accounts configured.\n\nPlease go to Settings and add an email account to enable email sync.")
       } else {
         alert(errorMessage)
       }
@@ -680,7 +686,7 @@ export default function ProspectDetailPage() {
             if (emailCommunications.length === 0) {
               return (
                 <p className="text-sm text-muted-foreground text-center py-4">
-                  No emails synced yet. Click "Fetch Emails" to import emails from Gmail.
+                  No emails synced yet. Click "Fetch Emails" to import emails from your configured email accounts.
                 </p>
               )
             }
