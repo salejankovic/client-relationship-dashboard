@@ -85,13 +85,20 @@ export async function POST(request: NextRequest) {
         // Connect to IMAP server
         const connection = await imapSimple.connect(config)
 
-        // Open INBOX
-        await connection.openBox("INBOX")
+        // Determine which folders to search
+        const isGmail = account.imap_host.toLowerCase().includes("gmail")
+        let foldersToSearch: string[] = []
 
-        // Search for emails to/from prospect
-        // Search criteria: OR (FROM prospectEmail, TO prospectEmail)
+        if (isGmail) {
+          // Gmail: use All Mail folder which contains everything
+          foldersToSearch = ["[Gmail]/All Mail"]
+        } else {
+          // Other providers: search INBOX and Sent folder
+          foldersToSearch = ["INBOX", "Sent", "SENT", "Sent Items", "Sent Messages"]
+        }
+
+        // Search criteria: emails FROM or TO the prospect
         const searchCriteria = [
-          "ALL",
           ["OR", ["FROM", prospectEmail], ["TO", prospectEmail]],
         ]
 
@@ -100,10 +107,23 @@ export async function POST(request: NextRequest) {
           markSeen: false,
         }
 
-        const messages = await connection.search(searchCriteria, fetchOptions)
+        let messages: any[] = []
+
+        for (const folder of foldersToSearch) {
+          try {
+            await connection.openBox(folder)
+            const folderMessages = await connection.search(searchCriteria, fetchOptions)
+            messages = messages.concat(folderMessages)
+            console.log(`Found ${folderMessages.length} messages in ${folder}`)
+          } catch (folderError) {
+            // Folder might not exist, skip it
+            console.log(`Folder ${folder} not accessible, skipping...`)
+          }
+        }
+
         totalMessages += messages.length
 
-        console.log(`Found ${messages.length} messages in ${account.account_name}`)
+        console.log(`Found ${messages.length} total messages in ${account.account_name}`)
 
         for (const item of messages) {
           try {
