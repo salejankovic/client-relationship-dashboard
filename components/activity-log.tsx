@@ -4,21 +4,49 @@ import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Plus, Edit, Trash2 } from "lucide-react"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+import { Plus, Edit, Trash2, FileText, Phone, Users, Video, MessageCircle, Linkedin } from "lucide-react"
 import { format } from "date-fns"
+import { type ActivityType, ACTIVITY_TYPE_CONFIG } from "@/lib/types"
 
 export interface ActivityItem {
   id: string
   comment: string
   date: string
   createdAt?: string
+  activityType?: ActivityType
+}
+
+const ActivityIcon = ({ type }: { type: ActivityType }) => {
+  const iconClass = "h-4 w-4"
+  switch (type) {
+    case 'call':
+      return <Phone className={iconClass} />
+    case 'meeting':
+      return <Users className={iconClass} />
+    case 'online_call':
+      return <Video className={iconClass} />
+    case 'sms_whatsapp':
+      return <MessageCircle className={iconClass} />
+    case 'linkedin':
+      return <Linkedin className={iconClass} />
+    case 'note':
+    default:
+      return <FileText className={iconClass} />
+  }
 }
 
 interface ActivityLogProps {
   title?: string
   activities: ActivityItem[]
-  onAdd: (comment: string, date: string) => void
-  onEdit?: (id: string, comment: string, date: string) => void
+  onAdd: (comment: string, date: string, activityType: ActivityType) => void
+  onEdit?: (id: string, comment: string, date: string, activityType: ActivityType) => void
   onDelete?: (id: string) => void
 }
 
@@ -31,9 +59,11 @@ export function ActivityLog({
 }: ActivityLogProps) {
   const [newComment, setNewComment] = useState("")
   const [newDate, setNewDate] = useState(format(new Date(), "yyyy-MM-dd"))
+  const [newActivityType, setNewActivityType] = useState<ActivityType>("note")
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editComment, setEditComment] = useState("")
   const [editDate, setEditDate] = useState("")
+  const [editActivityType, setEditActivityType] = useState<ActivityType>("note")
 
   const handleAdd = () => {
     if (!newComment.trim()) {
@@ -41,23 +71,26 @@ export function ActivityLog({
       return
     }
 
-    onAdd(newComment.trim(), newDate)
+    onAdd(newComment.trim(), newDate, newActivityType)
     setNewComment("")
     setNewDate(format(new Date(), "yyyy-MM-dd"))
+    setNewActivityType("note")
   }
 
   const handleEdit = (activity: ActivityItem) => {
     setEditingId(activity.id)
     setEditComment(activity.comment)
     setEditDate(activity.date)
+    setEditActivityType(activity.activityType || "note")
   }
 
   const handleSaveEdit = () => {
     if (editingId && onEdit && editComment.trim()) {
-      onEdit(editingId, editComment.trim(), editDate)
+      onEdit(editingId, editComment.trim(), editDate, editActivityType)
       setEditingId(null)
       setEditComment("")
       setEditDate("")
+      setEditActivityType("note")
     }
   }
 
@@ -65,6 +98,7 @@ export function ActivityLog({
     setEditingId(null)
     setEditComment("")
     setEditDate("")
+    setEditActivityType("note")
   }
 
   const formatDisplayDate = (dateString: string) => {
@@ -83,7 +117,22 @@ export function ActivityLog({
       </CardHeader>
       <CardContent className="space-y-4">
         {/* Add New Activity */}
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
+          <Select value={newActivityType} onValueChange={(v) => setNewActivityType(v as ActivityType)}>
+            <SelectTrigger className="w-[140px]">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {Object.entries(ACTIVITY_TYPE_CONFIG).map(([key, config]) => (
+                <SelectItem key={key} value={key}>
+                  <div className="flex items-center gap-2">
+                    <ActivityIcon type={key as ActivityType} />
+                    {config.label}
+                  </div>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
           <Input
             placeholder="Add a comment..."
             value={newComment}
@@ -94,7 +143,7 @@ export function ActivityLog({
                 handleAdd()
               }
             }}
-            className="flex-1"
+            className="flex-1 min-w-[200px]"
           />
           <Input
             type="date"
@@ -121,6 +170,21 @@ export function ActivityLog({
               >
                 {editingId === activity.id ? (
                   <div className="space-y-2">
+                    <Select value={editActivityType} onValueChange={(v) => setEditActivityType(v as ActivityType)}>
+                      <SelectTrigger className="w-[140px]">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {Object.entries(ACTIVITY_TYPE_CONFIG).map(([key, config]) => (
+                          <SelectItem key={key} value={key}>
+                            <div className="flex items-center gap-2">
+                              <ActivityIcon type={key as ActivityType} />
+                              {config.label}
+                            </div>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                     <Input
                       value={editComment}
                       onChange={(e) => setEditComment(e.target.value)}
@@ -143,11 +207,21 @@ export function ActivityLog({
                   </div>
                 ) : (
                   <div className="flex items-start justify-between gap-3">
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm break-words">{activity.comment}</p>
-                      <p className="text-xs text-muted-foreground mt-1">
-                        {formatDisplayDate(activity.date)}
-                      </p>
+                    <div className="flex items-start gap-3 flex-1 min-w-0">
+                      <div className="mt-0.5 text-muted-foreground">
+                        <ActivityIcon type={activity.activityType || "note"} />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="text-xs font-medium px-2 py-0.5 bg-secondary rounded">
+                            {ACTIVITY_TYPE_CONFIG[activity.activityType || "note"].label}
+                          </span>
+                          <span className="text-xs text-muted-foreground">
+                            {formatDisplayDate(activity.date)}
+                          </span>
+                        </div>
+                        <p className="text-sm break-words">{activity.comment}</p>
+                      </div>
                     </div>
                     <div className="flex gap-1 shrink-0">
                       {onEdit && (

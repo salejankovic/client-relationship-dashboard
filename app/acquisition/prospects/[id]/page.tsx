@@ -30,7 +30,7 @@ import {
 } from "@/components/ui/select"
 import { ArrowLeft, Loader2, Save, Trash2, Mail, ExternalLink, Lightbulb } from "lucide-react"
 import Link from "next/link"
-import type { Prospect, ProspectStatus, ProductType, ProspectType } from "@/lib/types"
+import type { Prospect, ProspectStatus, ProductType, ProspectType, ActivityType, CommunicationType } from "@/lib/types"
 
 export default function ProspectDetailPage() {
   const params = useParams()
@@ -197,24 +197,26 @@ export default function ProspectDetailPage() {
   }
 
   // Transform communications to activity items and sort by date descending
-  // Only include notes, not emails (emails are shown in Previous Communication section)
+  // Include all activity types except emails (emails are shown in Previous Communication section)
+  const activityTypes: CommunicationType[] = ['note', 'call', 'meeting', 'online_call', 'sms_whatsapp', 'linkedin']
   const activities: ActivityItem[] = communications
-    .filter((comm) => comm.type === 'note')
+    .filter((comm) => activityTypes.includes(comm.type))
     .map((comm) => ({
       id: comm.id,
       comment: comm.content,
       date: comm.createdAt.split('T')[0], // Get date part only
       createdAt: comm.createdAt,
+      activityType: comm.type as ActivityType,
     }))
     .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
 
-  const handleAddActivity = async (comment: string, date: string) => {
+  const handleAddActivity = async (comment: string, date: string, activityType: ActivityType) => {
     // Use the provided date instead of current timestamp
     const activityDate = new Date(date).toISOString()
 
     await addCommunication({
       prospectId,
-      type: 'note',
+      type: activityType,
       content: comment,
       direction: 'outbound',
       author: prospect.owner || 'Unknown',
@@ -228,14 +230,14 @@ export default function ProspectDetailPage() {
     })
   }
 
-  const handleEditActivity = async (id: string, comment: string, date: string) => {
+  const handleEditActivity = async (id: string, comment: string, date: string, activityType: ActivityType) => {
     // Delete and recreate with the new content and date
     const activityDate = new Date(date).toISOString()
 
     await deleteCommunication(id)
     await addCommunication({
       prospectId,
-      type: 'note',
+      type: activityType,
       content: comment,
       direction: 'outbound',
       author: prospect.owner || 'Unknown',

@@ -158,7 +158,19 @@ export interface AIInsight {
   aiModel?: string
 }
 
-export type CommunicationType = 'email' | 'call' | 'meeting' | 'note' | 'linkedin'
+export type CommunicationType = 'email' | 'call' | 'meeting' | 'note' | 'linkedin' | 'online_call' | 'sms_whatsapp'
+
+// Activity types for the Activity Log (subset of CommunicationType, excluding synced emails)
+export type ActivityType = 'note' | 'call' | 'meeting' | 'online_call' | 'sms_whatsapp' | 'linkedin'
+
+export const ACTIVITY_TYPE_CONFIG: Record<ActivityType, { label: string; icon: string }> = {
+  note: { label: 'Note', icon: 'FileText' },
+  call: { label: 'Phone Call', icon: 'Phone' },
+  meeting: { label: 'Meeting', icon: 'Users' },
+  online_call: { label: 'Online Call', icon: 'Video' },
+  sms_whatsapp: { label: 'SMS/WhatsApp', icon: 'MessageCircle' },
+  linkedin: { label: 'LinkedIn', icon: 'Linkedin' },
+}
 
 export interface Communication {
   id: string
