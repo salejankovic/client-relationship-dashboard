@@ -642,8 +642,8 @@ export default function ProspectDetailPage() {
         <NextActionField
           nextAction={prospect.nextAction || ""}
           nextActionDate={prospect.nextActionDate || ""}
-          onNextActionChange={(value) => setProspect({ ...prospect, nextAction: value })}
-          onNextActionDateChange={(value) => setProspect({ ...prospect, nextActionDate: value })}
+          onNextActionChange={(value) => setProspect(prev => prev ? { ...prev, nextAction: value || undefined } : prev)}
+          onNextActionDateChange={(value) => setProspect(prev => prev ? { ...prev, nextActionDate: value || undefined } : prev)}
         />
       </div>
 
