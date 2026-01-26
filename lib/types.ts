@@ -158,10 +158,13 @@ export interface AIInsight {
   aiModel?: string
 }
 
-export type CommunicationType = 'email' | 'call' | 'meeting' | 'note' | 'linkedin' | 'online_call' | 'sms_whatsapp' | 'email_reply'
+export type CommunicationType = 'email' | 'call' | 'meeting' | 'note' | 'linkedin' | 'online_call' | 'sms_whatsapp' | 'email_reply' | 'followup_sent'
 
 // Activity types for the Activity Log (subset of CommunicationType, excluding synced emails)
-export type ActivityType = 'note' | 'call' | 'meeting' | 'online_call' | 'sms_whatsapp' | 'linkedin' | 'email_reply'
+export type ActivityType = 'note' | 'call' | 'meeting' | 'online_call' | 'sms_whatsapp' | 'linkedin' | 'email_reply' | 'followup_sent'
+
+// Activity types that don't require a comment
+export const OPTIONAL_COMMENT_TYPES: ActivityType[] = ['followup_sent']
 
 export const ACTIVITY_TYPE_CONFIG: Record<ActivityType, { label: string; icon: string }> = {
   note: { label: 'Note', icon: 'FileText' },
@@ -171,6 +174,7 @@ export const ACTIVITY_TYPE_CONFIG: Record<ActivityType, { label: string; icon: s
   sms_whatsapp: { label: 'SMS/WhatsApp', icon: 'MessageCircle' },
   linkedin: { label: 'LinkedIn', icon: 'Linkedin' },
   email_reply: { label: 'Email Reply', icon: 'Reply' },
+  followup_sent: { label: 'Followup Sent', icon: 'Send' },
 }
 
 export interface Communication {

@@ -11,9 +11,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { Plus, Edit, Trash2, FileText, Phone, Users, Video, MessageCircle, Linkedin, Reply } from "lucide-react"
+import { Plus, Edit, Trash2, FileText, Phone, Users, Video, MessageCircle, Linkedin, Reply, Send } from "lucide-react"
 import { format } from "date-fns"
-import { type ActivityType, ACTIVITY_TYPE_CONFIG } from "@/lib/types"
+import { type ActivityType, ACTIVITY_TYPE_CONFIG, OPTIONAL_COMMENT_TYPES } from "@/lib/types"
 
 export interface ActivityItem {
   id: string
@@ -38,6 +38,8 @@ const ActivityIcon = ({ type }: { type: ActivityType }) => {
       return <Linkedin className={iconClass} />
     case 'email_reply':
       return <Reply className={iconClass} />
+    case 'followup_sent':
+      return <Send className={iconClass} />
     case 'note':
     default:
       return <FileText className={iconClass} />
@@ -74,12 +76,17 @@ export function ActivityLog({
     : activities.filter(a => a.activityType === filterType)
 
   const handleAdd = () => {
-    if (!newComment.trim()) {
+    const isCommentOptional = OPTIONAL_COMMENT_TYPES.includes(newActivityType)
+    if (!isCommentOptional && !newComment.trim()) {
       alert("Please enter a comment")
       return
     }
 
-    onAdd(newComment.trim(), newDate, newActivityType)
+    const commentToSave = isCommentOptional && !newComment.trim()
+      ? ACTIVITY_TYPE_CONFIG[newActivityType].label
+      : newComment.trim()
+
+    onAdd(commentToSave, newDate, newActivityType)
     setNewComment("")
     setNewDate(format(new Date(), "yyyy-MM-dd"))
     setNewActivityType("note")
