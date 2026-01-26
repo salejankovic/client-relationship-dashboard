@@ -80,9 +80,9 @@ export default function ImportProspectsPage() {
       return
     }
 
-    // Parse headers
+    // Parse headers (filter out empty headers)
     const headerLine = lines[0]
-    const parsedHeaders = headerLine.split(',').map(h => h.trim().replace(/^"|"$/g, ''))
+    const parsedHeaders = headerLine.split(',').map(h => h.trim().replace(/^"|"$/g, '')).filter(h => h)
     setHeaders(parsedHeaders)
 
     // Auto-detect common field mappings
@@ -90,23 +90,29 @@ export default function ImportProspectsPage() {
     parsedHeaders.forEach(header => {
       const lowerHeader = header.toLowerCase()
       if (lowerHeader.includes('company') || lowerHeader.includes('organization')) {
-        autoMapping.company = header
-      } else if (lowerHeader.includes('contact') || lowerHeader.includes('name') || lowerHeader.includes('person')) {
+        if (!autoMapping.company) autoMapping.company = header
+      } else if (lowerHeader === 'contact person' || (lowerHeader.includes('contact') && lowerHeader.includes('person'))) {
         autoMapping.contactPerson = header
-      } else if (lowerHeader.includes('email') || lowerHeader.includes('mail')) {
+      } else if (lowerHeader === 'email' || (lowerHeader.includes('email') && !lowerHeader.includes('linkedin'))) {
         autoMapping.email = header
-      } else if (lowerHeader.includes('phone') || lowerHeader.includes('telephone') || lowerHeader.includes('tel')) {
+      } else if (lowerHeader.includes('phone') || lowerHeader.includes('telephone') || lowerHeader === 'tel') {
         autoMapping.telephone = header
-      } else if (lowerHeader.includes('website') || lowerHeader.includes('url')) {
+      } else if (lowerHeader === 'website' || (lowerHeader.includes('website') && !lowerHeader.includes('linkedin'))) {
         autoMapping.website = header
-      } else if (lowerHeader.includes('country')) {
+      } else if (lowerHeader === 'country') {
         autoMapping.country = header
-      } else if (lowerHeader.includes('status')) {
+      } else if (lowerHeader === 'status') {
         autoMapping.status = header
-      } else if (lowerHeader.includes('owner') || lowerHeader.includes('assigned')) {
+      } else if (lowerHeader === 'owner' || lowerHeader.includes('assigned')) {
         autoMapping.owner = header
       } else if (lowerHeader.includes('value') || lowerHeader.includes('deal')) {
         autoMapping.dealValue = header
+      } else if (lowerHeader === 'product' || lowerHeader === 'product type') {
+        autoMapping.productType = header
+      } else if (lowerHeader === 'type' || lowerHeader === 'prospect type') {
+        autoMapping.prospectType = header
+      } else if (lowerHeader === 'next action' || lowerHeader.includes('next action')) {
+        autoMapping.nextAction = header
       }
     })
     setMapping(prev => ({ ...prev, ...autoMapping }))
@@ -344,7 +350,7 @@ Another Co,Jane Smith,jane@another.com,+385 1 987 6543,https://another.com,Websi
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="_skip">Don't import</SelectItem>
-                    {headers.map(header => (
+                    {headers.filter(h => h && h.trim()).map(header => (
                       <SelectItem key={header} value={header}>{header}</SelectItem>
                     ))}
                   </SelectContent>
@@ -359,7 +365,7 @@ Another Co,Jane Smith,jane@another.com,+385 1 987 6543,https://another.com,Websi
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="_skip">Don't import</SelectItem>
-                    {headers.map(header => (
+                    {headers.filter(h => h && h.trim()).map(header => (
                       <SelectItem key={header} value={header}>{header}</SelectItem>
                     ))}
                   </SelectContent>
@@ -374,7 +380,7 @@ Another Co,Jane Smith,jane@another.com,+385 1 987 6543,https://another.com,Websi
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="_skip">Don't import</SelectItem>
-                    {headers.map(header => (
+                    {headers.filter(h => h && h.trim()).map(header => (
                       <SelectItem key={header} value={header}>{header}</SelectItem>
                     ))}
                   </SelectContent>
@@ -389,7 +395,52 @@ Another Co,Jane Smith,jane@another.com,+385 1 987 6543,https://another.com,Websi
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="_skip">Don't import</SelectItem>
-                    {headers.map(header => (
+                    {headers.filter(h => h && h.trim()).map(header => (
+                      <SelectItem key={header} value={header}>{header}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="map-website">Website</Label>
+                <Select value={mapping.website} onValueChange={(value) => setMapping({ ...mapping, website: value })}>
+                  <SelectTrigger id="map-website">
+                    <SelectValue placeholder="Select column..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="_skip">Don't import</SelectItem>
+                    {headers.filter(h => h && h.trim()).map(header => (
+                      <SelectItem key={header} value={header}>{header}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="map-productType">Product Type</Label>
+                <Select value={mapping.productType} onValueChange={(value) => setMapping({ ...mapping, productType: value })}>
+                  <SelectTrigger id="map-productType">
+                    <SelectValue placeholder="Select column..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="_skip">Don't import</SelectItem>
+                    {headers.filter(h => h && h.trim()).map(header => (
+                      <SelectItem key={header} value={header}>{header}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="map-prospectType">Prospect Type</Label>
+                <Select value={mapping.prospectType} onValueChange={(value) => setMapping({ ...mapping, prospectType: value })}>
+                  <SelectTrigger id="map-prospectType">
+                    <SelectValue placeholder="Select column..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="_skip">Don't import</SelectItem>
+                    {headers.filter(h => h && h.trim()).map(header => (
                       <SelectItem key={header} value={header}>{header}</SelectItem>
                     ))}
                   </SelectContent>
@@ -404,7 +455,7 @@ Another Co,Jane Smith,jane@another.com,+385 1 987 6543,https://another.com,Websi
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="_skip">Don't import</SelectItem>
-                    {headers.map(header => (
+                    {headers.filter(h => h && h.trim()).map(header => (
                       <SelectItem key={header} value={header}>{header}</SelectItem>
                     ))}
                   </SelectContent>
@@ -419,7 +470,7 @@ Another Co,Jane Smith,jane@another.com,+385 1 987 6543,https://another.com,Websi
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="_skip">Don't import</SelectItem>
-                    {headers.map(header => (
+                    {headers.filter(h => h && h.trim()).map(header => (
                       <SelectItem key={header} value={header}>{header}</SelectItem>
                     ))}
                   </SelectContent>
@@ -434,7 +485,7 @@ Another Co,Jane Smith,jane@another.com,+385 1 987 6543,https://another.com,Websi
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="_skip">Don't import</SelectItem>
-                    {headers.map(header => (
+                    {headers.filter(h => h && h.trim()).map(header => (
                       <SelectItem key={header} value={header}>{header}</SelectItem>
                     ))}
                   </SelectContent>
@@ -449,7 +500,22 @@ Another Co,Jane Smith,jane@another.com,+385 1 987 6543,https://another.com,Websi
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="_skip">Don't import</SelectItem>
-                    {headers.map(header => (
+                    {headers.filter(h => h && h.trim()).map(header => (
+                      <SelectItem key={header} value={header}>{header}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="map-nextAction">Next Action</Label>
+                <Select value={mapping.nextAction} onValueChange={(value) => setMapping({ ...mapping, nextAction: value })}>
+                  <SelectTrigger id="map-nextAction">
+                    <SelectValue placeholder="Select column..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="_skip">Don't import</SelectItem>
+                    {headers.filter(h => h && h.trim()).map(header => (
                       <SelectItem key={header} value={header}>{header}</SelectItem>
                     ))}
                   </SelectContent>
