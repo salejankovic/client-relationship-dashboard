@@ -16,6 +16,7 @@ import { useCountries } from "@/hooks/use-countries"
 import { MainNav } from "@/components/main-nav"
 import { AppSidebar } from "@/components/app-sidebar"
 import { MobileNav } from "@/components/mobile-nav"
+import { CountryFlag } from "@/components/country-flag"
 
 export default function SettingsPage() {
   const router = useRouter()
@@ -396,8 +397,12 @@ export default function SettingsPage() {
           <CardContent className="space-y-4">
             <div className="flex flex-wrap gap-2">
               {countries.map((country) => (
-                <Badge key={country.id} variant="secondary" className="text-sm pl-3 pr-1 py-1">
-                  {country.flagEmoji && <span className="mr-1">{country.flagEmoji}</span>}
+                <Badge key={country.id} variant="secondary" className="text-sm pl-3 pr-1 py-1 flex items-center">
+                  {country.flagEmoji && (
+                    <span className="mr-1.5">
+                      <CountryFlag code={country.flagEmoji} className="w-4 h-3" />
+                    </span>
+                  )}
                   {country.name}
                   <Button
                     variant="ghost"

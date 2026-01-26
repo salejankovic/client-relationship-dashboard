@@ -7,6 +7,7 @@ import { MainNav } from "@/components/main-nav";
 import { AppSidebar } from "@/components/app-sidebar";
 import { MobileNav } from "@/components/mobile-nav";
 import { ProductBadge } from "@/components/product-badge";
+import { CountryFlag } from "@/components/country-flag";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -545,8 +546,8 @@ function ProspectsContent() {
                       <TableCell>
                         <div className="flex items-center gap-2">
                           {countryData?.flagEmoji && (
-                            <span className="text-lg" title={prospect.country}>
-                              {countryData.flagEmoji}
+                            <span title={prospect.country}>
+                              <CountryFlag code={countryData.flagEmoji} className="w-5 h-4" />
                             </span>
                           )}
                           <Link

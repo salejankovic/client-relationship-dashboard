@@ -30,6 +30,7 @@ import {
 } from "@/components/ui/select"
 import { ArrowLeft, Loader2, Save, Trash2, Mail, ExternalLink, Lightbulb } from "lucide-react"
 import Link from "next/link"
+import { CountryFlag } from "@/components/country-flag"
 import type { Prospect, ProspectStatus, ProductType, ProspectType, ActivityType, CommunicationType } from "@/lib/types"
 
 export default function ProspectDetailPage() {
@@ -313,8 +314,10 @@ export default function ProspectDetailPage() {
                 <SelectContent>
                   {countries.map((country) => (
                     <SelectItem key={country.id} value={country.name}>
-                      {country.flagEmoji && <span className="mr-2">{country.flagEmoji}</span>}
-                      {country.name}
+                      <span className="flex items-center gap-2">
+                        {country.flagEmoji && <CountryFlag code={country.flagEmoji} className="w-4 h-3" />}
+                        {country.name}
+                      </span>
                     </SelectItem>
                   ))}
                 </SelectContent>
