@@ -21,9 +21,12 @@ interface CSVRow {
 interface FieldMapping {
   company: string
   contactPerson: string
+  contactPosition: string
+  contactLinkedinUrl: string
   email: string
   telephone: string
   website: string
+  linkedinUrl: string
   productType: string
   prospectType: string
   country: string
@@ -43,9 +46,12 @@ export default function ImportProspectsPage() {
   const [mapping, setMapping] = useState<FieldMapping>({
     company: "_skip",
     contactPerson: "_skip",
+    contactPosition: "_skip",
+    contactLinkedinUrl: "_skip",
     email: "_skip",
     telephone: "_skip",
     website: "_skip",
+    linkedinUrl: "_skip",
     productType: "_skip",
     prospectType: "_skip",
     country: "_skip",
@@ -89,10 +95,16 @@ export default function ImportProspectsPage() {
     const autoMapping: Partial<FieldMapping> = {}
     parsedHeaders.forEach(header => {
       const lowerHeader = header.toLowerCase()
-      if (lowerHeader.includes('company') || lowerHeader.includes('organization')) {
+      if (lowerHeader.includes('company') && !lowerHeader.includes('linkedin')) {
         if (!autoMapping.company) autoMapping.company = header
       } else if (lowerHeader === 'contact person' || (lowerHeader.includes('contact') && lowerHeader.includes('person'))) {
         autoMapping.contactPerson = header
+      } else if (lowerHeader === 'contact position' || lowerHeader.includes('position') || lowerHeader.includes('title') || lowerHeader.includes('role')) {
+        autoMapping.contactPosition = header
+      } else if (lowerHeader.includes('contact') && lowerHeader.includes('linkedin')) {
+        autoMapping.contactLinkedinUrl = header
+      } else if (lowerHeader.includes('company') && lowerHeader.includes('linkedin')) {
+        autoMapping.linkedinUrl = header
       } else if (lowerHeader === 'email' || (lowerHeader.includes('email') && !lowerHeader.includes('linkedin'))) {
         autoMapping.email = header
       } else if (lowerHeader.includes('phone') || lowerHeader.includes('telephone') || lowerHeader === 'tel') {
@@ -198,9 +210,12 @@ Another Co,Jane Smith,jane@another.com,+385 1 987 6543,https://another.com,Websi
           id: `prospect-import-${Date.now()}-${i}`,
           company: company.trim(),
           contactPerson: mapping.contactPerson !== "_skip" ? row[mapping.contactPerson] : undefined,
+          contactPosition: mapping.contactPosition !== "_skip" ? row[mapping.contactPosition] : undefined,
+          contactLinkedinUrl: mapping.contactLinkedinUrl !== "_skip" ? row[mapping.contactLinkedinUrl] : undefined,
           email: mapping.email !== "_skip" ? row[mapping.email] : undefined,
           telephone: mapping.telephone !== "_skip" ? row[mapping.telephone] : undefined,
           website: mapping.website !== "_skip" ? row[mapping.website] : undefined,
+          linkedinUrl: mapping.linkedinUrl !== "_skip" ? row[mapping.linkedinUrl] : undefined,
           productType: mapping.productType !== "_skip" ? row[mapping.productType] as ProductType : undefined,
           prospectType: mapping.prospectType !== "_skip" ? row[mapping.prospectType] as ProspectType : undefined,
           country: mapping.country !== "_skip" ? row[mapping.country] : undefined,
@@ -373,6 +388,36 @@ Another Co,Jane Smith,jane@another.com,+385 1 987 6543,https://another.com,Websi
               </div>
 
               <div className="space-y-2">
+                <Label htmlFor="map-contactPosition">Contact Position</Label>
+                <Select value={mapping.contactPosition} onValueChange={(value) => setMapping({ ...mapping, contactPosition: value })}>
+                  <SelectTrigger id="map-contactPosition">
+                    <SelectValue placeholder="Select column..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="_skip">Don't import</SelectItem>
+                    {headers.filter(h => h && h.trim()).map(header => (
+                      <SelectItem key={header} value={header}>{header}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="map-contactLinkedinUrl">Contact LinkedIn URL</Label>
+                <Select value={mapping.contactLinkedinUrl} onValueChange={(value) => setMapping({ ...mapping, contactLinkedinUrl: value })}>
+                  <SelectTrigger id="map-contactLinkedinUrl">
+                    <SelectValue placeholder="Select column..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="_skip">Don't import</SelectItem>
+                    {headers.filter(h => h && h.trim()).map(header => (
+                      <SelectItem key={header} value={header}>{header}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
                 <Label htmlFor="map-email">Email</Label>
                 <Select value={mapping.email} onValueChange={(value) => setMapping({ ...mapping, email: value })}>
                   <SelectTrigger id="map-email">
@@ -406,6 +451,21 @@ Another Co,Jane Smith,jane@another.com,+385 1 987 6543,https://another.com,Websi
                 <Label htmlFor="map-website">Website</Label>
                 <Select value={mapping.website} onValueChange={(value) => setMapping({ ...mapping, website: value })}>
                   <SelectTrigger id="map-website">
+                    <SelectValue placeholder="Select column..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="_skip">Don't import</SelectItem>
+                    {headers.filter(h => h && h.trim()).map(header => (
+                      <SelectItem key={header} value={header}>{header}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="map-linkedinUrl">Company LinkedIn URL</Label>
+                <Select value={mapping.linkedinUrl} onValueChange={(value) => setMapping({ ...mapping, linkedinUrl: value })}>
+                  <SelectTrigger id="map-linkedinUrl">
                     <SelectValue placeholder="Select column..." />
                   </SelectTrigger>
                   <SelectContent>

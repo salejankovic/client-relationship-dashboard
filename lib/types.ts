@@ -74,6 +74,8 @@ export interface Prospect {
   id: string
   company: string
   contactPerson?: string
+  contactPosition?: string
+  contactLinkedinUrl?: string
   email?: string
   telephone?: string
   website?: string
