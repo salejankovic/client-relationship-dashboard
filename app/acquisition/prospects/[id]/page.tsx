@@ -198,7 +198,7 @@ export default function ProspectDetailPage() {
 
   // Transform communications to activity items and sort by date descending
   // Include all activity types except emails (emails are shown in Previous Communication section)
-  const activityTypes: CommunicationType[] = ['note', 'call', 'meeting', 'online_call', 'sms_whatsapp', 'linkedin']
+  const activityTypes: CommunicationType[] = ['note', 'call', 'meeting', 'online_call', 'sms_whatsapp', 'linkedin', 'email_reply']
   const activities: ActivityItem[] = communications
     .filter((comm) => activityTypes.includes(comm.type))
     .map((comm) => ({

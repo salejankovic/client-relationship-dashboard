@@ -11,7 +11,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { Plus, Edit, Trash2, FileText, Phone, Users, Video, MessageCircle, Linkedin } from "lucide-react"
+import { Plus, Edit, Trash2, FileText, Phone, Users, Video, MessageCircle, Linkedin, Reply } from "lucide-react"
 import { format } from "date-fns"
 import { type ActivityType, ACTIVITY_TYPE_CONFIG } from "@/lib/types"
 
@@ -36,6 +36,8 @@ const ActivityIcon = ({ type }: { type: ActivityType }) => {
       return <MessageCircle className={iconClass} />
     case 'linkedin':
       return <Linkedin className={iconClass} />
+    case 'email_reply':
+      return <Reply className={iconClass} />
     case 'note':
     default:
       return <FileText className={iconClass} />
