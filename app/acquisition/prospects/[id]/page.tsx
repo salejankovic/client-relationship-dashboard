@@ -646,11 +646,13 @@ export default function ProspectDetailPage() {
           onNextActionDateChange={(value) => setProspect(prev => prev ? { ...prev, nextActionDate: value || undefined } : prev)}
           onComplete={async () => {
             // Auto-save when Complete is clicked
-            await updateProspect({
+            const clearedProspect: Prospect = {
               ...prospect,
               nextAction: undefined,
               nextActionDate: undefined,
-            })
+            }
+            setProspect(clearedProspect)
+            await updateProspect(clearedProspect)
           }}
         />
       </div>

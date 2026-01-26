@@ -2,6 +2,20 @@ import { useEffect, useState } from "react"
 import { supabase } from "@/lib/supabase"
 import type { Country } from "@/lib/types"
 
+// Convert 2-letter country code to flag emoji
+export function countryCodeToFlag(code: string): string {
+  if (!code) return ""
+  // If it's already an emoji (starts with high unicode), return as-is
+  if (code.codePointAt(0)! > 127) return code
+  // If it's a 2-letter code, convert to flag emoji
+  if (code.length === 2 && /^[a-zA-Z]{2}$/.test(code)) {
+    const upper = code.toUpperCase()
+    const codePoints = [...upper].map(char => 0x1F1E6 + char.charCodeAt(0) - 65)
+    return String.fromCodePoint(...codePoints)
+  }
+  return code
+}
+
 export function useCountries() {
   const [countries, setCountries] = useState<Country[]>([])
   const [loading, setLoading] = useState(true)
@@ -20,7 +34,7 @@ export function useCountries() {
       const transformedCountries: Country[] = (data || []).map((row: any) => ({
         id: row.id,
         name: row.name,
-        flagEmoji: row.flag_emoji || undefined,
+        flagEmoji: row.flag_emoji ? countryCodeToFlag(row.flag_emoji) : undefined,
         createdAt: row.created_at,
       }))
 
