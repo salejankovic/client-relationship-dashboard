@@ -41,9 +41,14 @@ import {
   AlertTriangle,
   Loader2,
   Trash2,
+  ArrowUpDown,
+  ArrowUp,
+  ArrowDown,
 } from "lucide-react";
 
 type HealthStatus = "Active" | "Cooling" | "Cold" | "Frozen";
+type SortColumn = "dealValue" | "lastContact" | "status" | null;
+type SortDirection = "asc" | "desc";
 
 function getHealthStatus(daysSinceContact: number): HealthStatus {
   if (daysSinceContact <= 7) return "Active";
@@ -106,6 +111,8 @@ function ProspectsContent() {
   const [customLabelFilter, setCustomLabelFilter] = useState<string>("all");
   const [selectedProspects, setSelectedProspects] = useState<string[]>([]);
   const [lastSelectedIndex, setLastSelectedIndex] = useState<number | null>(null);
+  const [sortColumn, setSortColumn] = useState<SortColumn>(null);
+  const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
 
   // Filter out archived prospects
   const prospects = useMemo(
@@ -138,6 +145,28 @@ function ProspectsContent() {
     };
   }, [prospects]);
 
+  // Helper to parse deal value for sorting (extracts first number)
+  const parseDealValue = (value: string | undefined): number => {
+    if (!value) return 0;
+    const match = value.match(/[\d,]+/);
+    if (match) {
+      return parseFloat(match[0].replace(/,/g, ''));
+    }
+    return 0;
+  };
+
+  // Helper for status priority (Hot > Warm > Cold > Not contacted > Lost)
+  const getStatusPriority = (status: string): number => {
+    const priorities: Record<string, number> = {
+      'Hot': 5,
+      'Warm': 4,
+      'Cold': 3,
+      'Not contacted yet': 2,
+      'Lost': 1,
+    };
+    return priorities[status] ?? 0;
+  };
+
   const filteredProspects = useMemo(() => {
     return prospects
       .filter((p) => {
@@ -165,8 +194,26 @@ function ProspectsContent() {
           matchesCustomLabel
         );
       })
-      .sort((a, b) => (b.daysSinceContact ?? 0) - (a.daysSinceContact ?? 0));
-  }, [prospects, search, productFilter, typeFilter, countryFilter, ownerFilter, statusFilter, customLabelFilter]);
+      .sort((a, b) => {
+        // Apply custom sorting if a column is selected
+        if (sortColumn) {
+          let comparison = 0;
+
+          if (sortColumn === 'dealValue') {
+            comparison = parseDealValue(a.dealValue) - parseDealValue(b.dealValue);
+          } else if (sortColumn === 'lastContact') {
+            comparison = (a.daysSinceContact ?? 0) - (b.daysSinceContact ?? 0);
+          } else if (sortColumn === 'status') {
+            comparison = getStatusPriority(a.status) - getStatusPriority(b.status);
+          }
+
+          return sortDirection === 'asc' ? comparison : -comparison;
+        }
+
+        // Default sort by days since contact (descending)
+        return (b.daysSinceContact ?? 0) - (a.daysSinceContact ?? 0);
+      });
+  }, [prospects, search, productFilter, typeFilter, countryFilter, ownerFilter, statusFilter, customLabelFilter, sortColumn, sortDirection]);
 
   const needsFollowUp = filteredProspects.filter((p) => (p.daysSinceContact ?? 0) > 14);
 
@@ -223,6 +270,28 @@ function ProspectsContent() {
       console.error('Error deleting prospects:', error);
       alert('Failed to delete some prospects. Please try again.');
     }
+  };
+
+  const handleSort = (column: SortColumn) => {
+    if (sortColumn === column) {
+      // Toggle direction if same column
+      setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
+    } else {
+      // New column, start with desc
+      setSortColumn(column);
+      setSortDirection('desc');
+    }
+  };
+
+  const SortIcon = ({ column }: { column: SortColumn }) => {
+    if (sortColumn !== column) {
+      return <ArrowUpDown className="w-3 h-3 ml-1 opacity-50" />;
+    }
+    return sortDirection === 'asc' ? (
+      <ArrowUp className="w-3 h-3 ml-1" />
+    ) : (
+      <ArrowDown className="w-3 h-3 ml-1" />
+    );
   };
 
   if (loading) {
@@ -418,9 +487,33 @@ function ProspectsContent() {
                   <TableHead>Company</TableHead>
                   <TableHead>Contact</TableHead>
                   <TableHead>Product</TableHead>
-                  <TableHead>Deal Value</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Last Contact</TableHead>
+                  <TableHead>
+                    <button
+                      onClick={() => handleSort('dealValue')}
+                      className="flex items-center hover:text-foreground transition-colors"
+                    >
+                      Deal Value
+                      <SortIcon column="dealValue" />
+                    </button>
+                  </TableHead>
+                  <TableHead>
+                    <button
+                      onClick={() => handleSort('status')}
+                      className="flex items-center hover:text-foreground transition-colors"
+                    >
+                      Status
+                      <SortIcon column="status" />
+                    </button>
+                  </TableHead>
+                  <TableHead>
+                    <button
+                      onClick={() => handleSort('lastContact')}
+                      className="flex items-center hover:text-foreground transition-colors"
+                    >
+                      Last Contact
+                      <SortIcon column="lastContact" />
+                    </button>
+                  </TableHead>
                   <TableHead>Next Action</TableHead>
                 </TableRow>
               </TableHeader>
@@ -479,18 +572,21 @@ function ProspectsContent() {
                       <TableCell>
                         <DaysIndicator days={prospect.daysSinceContact} /> ago
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="max-w-[200px]">
                         {prospect.nextAction ? (
                           <Link
                             href={`/acquisition/prospects/${prospect.id}`}
                             className="block hover:bg-muted/50 transition-colors rounded p-1 -m-1"
                           >
-                            <div className="text-sm font-medium text-foreground line-clamp-1">
+                            <div className="text-sm font-medium text-foreground whitespace-normal break-words">
                               {prospect.nextAction}
                             </div>
                             {prospect.nextActionDate && (
                               <div className="text-xs text-muted-foreground">
-                                {new Date(prospect.nextActionDate).toLocaleDateString()}
+                                {(() => {
+                                  const d = new Date(prospect.nextActionDate);
+                                  return `${d.getDate()}/${d.getMonth() + 1}/${d.getFullYear()}`;
+                                })()}
                               </div>
                             )}
                           </Link>

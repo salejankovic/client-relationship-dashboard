@@ -53,6 +53,8 @@ export default function ProspectDetailPage() {
   const [isFetchingNews, setIsFetchingNews] = useState(false)
   const [isFetchingEmails, setIsFetchingEmails] = useState(false)
   const [emailsToShow, setEmailsToShow] = useState(10)
+  const [expandedEmails, setExpandedEmails] = useState<Set<string>>(new Set())
+  const [emailFilter, setEmailFilter] = useState<'all' | 'sent' | 'received'>('all')
 
   useEffect(() => {
     const found = prospects.find((p) => p.id === prospectId)
@@ -684,11 +686,21 @@ export default function ProspectDetailPage() {
         </CardHeader>
         <CardContent>
           {(() => {
-            const emailCommunications = communications
+            const allEmailCommunications = communications
               .filter(c => c.type === 'email')
               .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
 
-            if (emailCommunications.length === 0) {
+            const emailCommunications = allEmailCommunications.filter(email => {
+              if (emailFilter === 'all') return true
+              if (emailFilter === 'sent') return email.direction === 'outbound'
+              if (emailFilter === 'received') return email.direction === 'inbound'
+              return true
+            })
+
+            const sentCount = allEmailCommunications.filter(e => e.direction === 'outbound').length
+            const receivedCount = allEmailCommunications.filter(e => e.direction === 'inbound').length
+
+            if (allEmailCommunications.length === 0) {
               return (
                 <p className="text-sm text-muted-foreground text-center py-4">
                   No emails synced yet. Click "Fetch Emails" to import emails from your configured email accounts.
@@ -701,39 +713,89 @@ export default function ProspectDetailPage() {
 
             return (
               <div className="space-y-3">
-                {visibleEmails.map((email) => (
-                  <div key={email.id} className="border rounded-lg p-4 space-y-2">
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-1">
-                          <Badge variant={email.direction === 'inbound' ? 'default' : 'secondary'}>
-                            {email.direction === 'inbound' ? '📥 Received' : '📤 Sent'}
-                          </Badge>
-                          <span className="text-xs text-muted-foreground">
-                            {new Date(email.createdAt).toLocaleDateString()} {new Date(email.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                          </span>
-                        </div>
-                        <h4 className="font-medium text-sm">{email.subject || '(No Subject)'}</h4>
-                        {email.aiSummary && (
-                          <div className="bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-lg p-3 mt-2">
-                            <div className="flex items-start gap-2">
-                              <Lightbulb className="h-4 w-4 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" />
-                              <p className="text-sm text-blue-800 dark:text-blue-200">{email.aiSummary}</p>
-                            </div>
+                {/* Filter buttons */}
+                <div className="flex items-center gap-2 pb-2 border-b">
+                  <Button
+                    size="sm"
+                    variant={emailFilter === 'all' ? 'default' : 'outline'}
+                    onClick={() => setEmailFilter('all')}
+                    className="h-8"
+                  >
+                    All ({allEmailCommunications.length})
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant={emailFilter === 'sent' ? 'default' : 'outline'}
+                    onClick={() => setEmailFilter('sent')}
+                    className="h-8"
+                  >
+                    Sent ({sentCount})
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant={emailFilter === 'received' ? 'default' : 'outline'}
+                    onClick={() => setEmailFilter('received')}
+                    className="h-8"
+                  >
+                    Received ({receivedCount})
+                  </Button>
+                </div>
+                {visibleEmails.map((email) => {
+                  const isExpanded = expandedEmails.has(email.id)
+                  return (
+                    <div key={email.id} className="border rounded-lg p-4 space-y-2">
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-1">
+                            <Badge variant={email.direction === 'inbound' ? 'default' : 'secondary'}>
+                              {email.direction === 'inbound' ? '📥 Received' : '📤 Sent'}
+                            </Badge>
+                            <span className="text-xs text-muted-foreground">
+                              {new Date(email.createdAt).toLocaleDateString()} {new Date(email.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                            </span>
                           </div>
-                        )}
-                        {email.content && !email.aiSummary && (
-                          <p className="text-sm text-muted-foreground mt-2 line-clamp-3">
-                            {email.content}
-                          </p>
+                          <h4 className="font-medium text-sm">{email.subject || '(No Subject)'}</h4>
+                          {email.aiSummary && (
+                            <div className="bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-lg p-3 mt-2">
+                              <div className="flex items-start gap-2">
+                                <Lightbulb className="h-4 w-4 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" />
+                                <p className="text-sm text-blue-800 dark:text-blue-200">{email.aiSummary}</p>
+                              </div>
+                            </div>
+                          )}
+                          {email.content && (
+                            <p className={`text-sm text-muted-foreground mt-2 whitespace-pre-wrap ${!isExpanded ? 'line-clamp-3' : ''}`}>
+                              {email.content}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex items-center justify-between text-xs text-muted-foreground pt-2 border-t">
+                        <span>From: {email.author}</span>
+                        {email.content && email.content.length > 200 && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => {
+                              setExpandedEmails(prev => {
+                                const next = new Set(prev)
+                                if (next.has(email.id)) {
+                                  next.delete(email.id)
+                                } else {
+                                  next.add(email.id)
+                                }
+                                return next
+                              })
+                            }}
+                            className="h-auto py-1 text-blue-600 hover:text-blue-700"
+                          >
+                            {isExpanded ? 'Show less' : 'View full message'}
+                          </Button>
                         )}
                       </div>
                     </div>
-                    <div className="flex items-center justify-between text-xs text-muted-foreground pt-2 border-t">
-                      <span>From: {email.author}</span>
-                    </div>
-                  </div>
-                ))}
+                  )
+                })}
                 {hasMore && (
                   <div className="text-center pt-2">
                     <Button
