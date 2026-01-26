@@ -99,9 +99,25 @@ export default function SettingsPage() {
     await deleteProspectType(type)
   }
 
+  // Convert 2-letter country code to flag emoji
+  const countryCodeToFlag = (code: string): string => {
+    if (!code || code.length !== 2) return code
+    const upper = code.toUpperCase()
+    // Check if it's a valid A-Z country code
+    if (!/^[A-Z]{2}$/.test(upper)) return code
+    // Convert to regional indicator symbols
+    const codePoints = [...upper].map(char => 0x1F1E6 + char.charCodeAt(0) - 65)
+    return String.fromCodePoint(...codePoints)
+  }
+
   const addCountryHandler = async () => {
     if (newCountryName.trim()) {
-      await addCountry(newCountryName.trim(), newCountryFlag.trim() || undefined)
+      let flagEmoji = newCountryFlag.trim()
+      // If it looks like a 2-letter country code, convert to flag emoji
+      if (flagEmoji && flagEmoji.length === 2 && /^[a-zA-Z]{2}$/.test(flagEmoji)) {
+        flagEmoji = countryCodeToFlag(flagEmoji)
+      }
+      await addCountry(newCountryName.trim(), flagEmoji || undefined)
       setNewCountryName("")
       setNewCountryFlag("")
     }
@@ -404,11 +420,11 @@ export default function SettingsPage() {
                   className="flex-1 bg-background border-border"
                 />
                 <Input
-                  placeholder="Flag emoji (e.g. 🇺🇸)"
+                  placeholder="Code (e.g. HR, US)"
                   value={newCountryFlag}
                   onChange={(e) => setNewCountryFlag(e.target.value)}
                   onKeyDown={(e) => e.key === "Enter" && addCountryHandler()}
-                  className="w-32 bg-background border-border"
+                  className="w-36 bg-background border-border"
                 />
                 <Button onClick={addCountryHandler} disabled={!newCountryName.trim()}>
                   <Plus className="h-4 w-4 mr-2" />
@@ -416,15 +432,7 @@ export default function SettingsPage() {
                 </Button>
               </div>
               <p className="text-xs text-muted-foreground">
-                Tip: Copy flag emojis from{" "}
-                <a
-                  href="https://emojipedia.org/flags"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-blue-600 hover:underline"
-                >
-                  Emojipedia
-                </a>
+                Enter a 2-letter country code (HR, US, DE, etc.) and it will be converted to a flag emoji automatically.
               </p>
             </div>
           </CardContent>

@@ -11,7 +11,7 @@ interface NextActionFieldProps {
   nextActionDate: string
   onNextActionChange: (value: string) => void
   onNextActionDateChange: (value: string) => void
-  onClear?: () => void
+  onComplete?: () => Promise<void>
   className?: string
 }
 
@@ -20,15 +20,17 @@ export function NextActionField({
   nextActionDate,
   onNextActionChange,
   onNextActionDateChange,
-  onClear,
+  onComplete,
   className = ""
 }: NextActionFieldProps) {
   const hasContent = nextAction.trim() || nextActionDate
 
-  const handleClear = () => {
+  const handleComplete = async () => {
     onNextActionChange("")
     onNextActionDateChange("")
-    onClear?.()
+    if (onComplete) {
+      await onComplete()
+    }
   }
 
   return (
@@ -37,10 +39,9 @@ export function NextActionField({
         <CardTitle className="text-lg">Next Action</CardTitle>
         {hasContent && (
           <Button
-            variant="outline"
             size="sm"
-            onClick={handleClear}
-            className="h-8 text-xs"
+            onClick={handleComplete}
+            className="h-8 text-xs bg-black text-white hover:bg-gray-800 dark:bg-white dark:text-black dark:hover:bg-gray-200"
           >
             <Check className="h-3 w-3 mr-1" />
             Complete
