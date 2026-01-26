@@ -66,6 +66,12 @@ export function ActivityLog({
   const [editComment, setEditComment] = useState("")
   const [editDate, setEditDate] = useState("")
   const [editActivityType, setEditActivityType] = useState<ActivityType>("note")
+  const [filterType, setFilterType] = useState<ActivityType | 'all'>('all')
+
+  // Filter activities based on selected type
+  const filteredActivities = filterType === 'all'
+    ? activities
+    : activities.filter(a => a.activityType === filterType)
 
   const handleAdd = () => {
     if (!newComment.trim()) {
@@ -158,14 +164,48 @@ export function ActivityLog({
           </Button>
         </div>
 
+        {/* Filter Buttons */}
+        {activities.length > 0 && (
+          <div className="flex flex-wrap items-center gap-2 pb-2 border-b">
+            <Button
+              size="sm"
+              variant={filterType === 'all' ? 'default' : 'outline'}
+              onClick={() => setFilterType('all')}
+              className="h-7 text-xs"
+            >
+              All ({activities.length})
+            </Button>
+            {Object.entries(ACTIVITY_TYPE_CONFIG).map(([key, config]) => {
+              const count = activities.filter(a => a.activityType === key).length
+              if (count === 0) return null
+              return (
+                <Button
+                  key={key}
+                  size="sm"
+                  variant={filterType === key ? 'default' : 'outline'}
+                  onClick={() => setFilterType(key as ActivityType)}
+                  className="h-7 text-xs"
+                >
+                  <ActivityIcon type={key as ActivityType} />
+                  <span className="ml-1">{config.label} ({count})</span>
+                </Button>
+              )
+            })}
+          </div>
+        )}
+
         {/* Activity List */}
         {activities.length === 0 ? (
           <p className="text-sm text-muted-foreground text-center py-8">
             No activity recorded yet. Add your first entry above.
           </p>
+        ) : filteredActivities.length === 0 ? (
+          <p className="text-sm text-muted-foreground text-center py-8">
+            No activities match the selected filter.
+          </p>
         ) : (
           <div className="space-y-3">
-            {activities.map((activity) => (
+            {filteredActivities.map((activity) => (
               <div
                 key={activity.id}
                 className="border rounded-lg p-3 hover:bg-muted/30 transition-colors"
