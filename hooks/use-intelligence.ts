@@ -33,6 +33,7 @@ export function useIntelligence(prospectId?: string) {
         title: row.title,
         description: row.description || undefined,
         sourceType: row.source_type,
+        intelligenceType: row.intelligence_type || undefined,
         url: row.url || undefined,
         imageUrl: row.image_url || undefined,
         publishedAt: row.published_at || undefined,
@@ -40,6 +41,27 @@ export function useIntelligence(prospectId?: string) {
         dismissed: row.dismissed || false,
         aiTip: row.ai_tip || undefined,
         relevanceScore: row.relevance_score || undefined,
+        // Person fields
+        personName: row.person_name || undefined,
+        personPosition: row.person_position || undefined,
+        personLinkedinUrl: row.person_linkedin_url || undefined,
+        personAvatarUrl: row.person_avatar_url || undefined,
+        // Company/source fields
+        companyName: row.company_name || undefined,
+        sourceName: row.source_name || undefined,
+        contentQuote: row.content_quote || undefined,
+        // Match fields
+        matchHomeTeam: row.match_home_team || undefined,
+        matchAwayTeam: row.match_away_team || undefined,
+        matchHomeScore: row.match_home_score ?? undefined,
+        matchAwayScore: row.match_away_score ?? undefined,
+        matchScorers: row.match_scorers || undefined,
+        matchLeague: row.match_league || undefined,
+        // Job change fields
+        previousPosition: row.previous_position || undefined,
+        previousCompany: row.previous_company || undefined,
+        // Country
+        countryCode: row.country_code || undefined,
       }))
 
       setIntelligenceItems(transformedItems)
@@ -97,11 +119,33 @@ export function useIntelligence(prospectId?: string) {
         title: newItem.title,
         description: newItem.description,
         source_type: newItem.sourceType,
+        intelligence_type: newItem.intelligenceType,
         url: newItem.url,
         image_url: newItem.imageUrl,
         published_at: newItem.publishedAt,
         ai_tip: newItem.aiTip,
         relevance_score: newItem.relevanceScore,
+        // Person fields
+        person_name: newItem.personName,
+        person_position: newItem.personPosition,
+        person_linkedin_url: newItem.personLinkedinUrl,
+        person_avatar_url: newItem.personAvatarUrl,
+        // Company/source fields
+        company_name: newItem.companyName,
+        source_name: newItem.sourceName,
+        content_quote: newItem.contentQuote,
+        // Match fields
+        match_home_team: newItem.matchHomeTeam,
+        match_away_team: newItem.matchAwayTeam,
+        match_home_score: newItem.matchHomeScore,
+        match_away_score: newItem.matchAwayScore,
+        match_scorers: newItem.matchScorers,
+        match_league: newItem.matchLeague,
+        // Job change fields
+        previous_position: newItem.previousPosition,
+        previous_company: newItem.previousCompany,
+        // Country
+        country_code: newItem.countryCode,
       }])
 
       if (error) {

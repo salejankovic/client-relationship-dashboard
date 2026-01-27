@@ -12,6 +12,8 @@ import { useProspectTypes } from "@/hooks/use-prospect-types"
 import { useTeamMembers } from "@/hooks/use-team-members"
 import { EmailComposerModal } from "@/components/email-composer-modal"
 import { AIInsightsCard } from "@/components/ai-insights-card"
+import { IntelligenceCard, FollowupEmailDialog } from "@/components/intelligence"
+import type { IntelligenceItem } from "@/lib/types"
 import { ArchiveProspectDialog } from "@/components/archive-prospect-dialog"
 import { ProspectContactsManager } from "@/components/prospect-contacts-manager"
 import { ActivityLog, type ActivityItem } from "@/components/activity-log"
@@ -56,6 +58,8 @@ export default function ProspectDetailPage() {
   const [emailsToShow, setEmailsToShow] = useState(10)
   const [expandedEmails, setExpandedEmails] = useState<Set<string>>(new Set())
   const [emailFilter, setEmailFilter] = useState<'all' | 'sent' | 'received'>('all')
+  const [followupDialogOpen, setFollowupDialogOpen] = useState(false)
+  const [selectedIntelligence, setSelectedIntelligence] = useState<IntelligenceItem | null>(null)
 
   useEffect(() => {
     const found = prospects.find((p) => p.id === prospectId)
@@ -115,34 +119,42 @@ export default function ProspectDetailPage() {
   const handleFetchNews = async () => {
     setIsFetchingNews(true)
     try {
+      // Get primary contact name if available
+      const primaryContact = contacts.find(c => c.isPrimary) || contacts[0]
+
       const response = await fetch("/api/fetch-intelligence", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           companyName: prospect.company,
-          productType: prospect.productType,
-          dealValue: prospect.dealValue,
           prospectId: prospect.id,
+          website: prospect.website,
+          prospectType: prospect.prospectType,
+          contactName: primaryContact?.name,
+          saveToDB: true,
         }),
       })
 
       const data = await response.json()
 
-      if (data.items && data.items.length > 0) {
-        // Add each intelligence item to the database
-        for (const item of data.items) {
-          await addIntelligenceItem(item)
-        }
-        alert(`Successfully fetched ${data.items.length} relevant news articles!`)
+      if (data.newItemsCount > 0) {
+        alert(`Successfully saved ${data.newItemsCount} new intelligence items!`)
+      } else if (data.items && data.items.length > 0) {
+        alert(`Found ${data.items.length} items, but they were already in the database.`)
       } else {
-        alert("No recent news found for this company.")
+        alert("No recent intelligence found for this company.")
       }
     } catch (error) {
-      console.error("Error fetching news:", error)
-      alert("Failed to fetch news. Please try again.")
+      console.error("Error fetching intelligence:", error)
+      alert("Failed to fetch intelligence. Please try again.")
     } finally {
       setIsFetchingNews(false)
     }
+  }
+
+  const handleUseInFollowUp = (item: IntelligenceItem) => {
+    setSelectedIntelligence(item)
+    setFollowupDialogOpen(true)
   }
 
   const handleFetchEmails = async () => {
@@ -550,7 +562,7 @@ export default function ProspectDetailPage() {
                 ) : (
                   <>
                     <Lightbulb className="h-4 w-4 mr-2" />
-                    Fetch News
+                    Fetch Intelligence
                   </>
                 )}
               </Button>
@@ -569,67 +581,28 @@ export default function ProspectDetailPage() {
             </div>
           ) : intelligenceItems.filter(i => !i.dismissed).length === 0 ? (
             <p className="text-sm text-muted-foreground text-center py-4">
-              No intelligence items for this prospect yet.
+              No intelligence items for this prospect yet. Click "Fetch News" to gather intelligence.
             </p>
           ) : (
-            <div className="space-y-3">
-              {intelligenceItems.filter(i => !i.dismissed).slice(0, 3).map((item) => (
-                <div key={item.id} className="border rounded-lg p-4 space-y-2">
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className="text-xs px-2 py-0.5 rounded bg-secondary">
-                          {item.sourceType}
-                        </span>
-                        {item.relevanceScore !== undefined && (
-                          <span className="text-xs px-2 py-0.5 rounded bg-secondary">
-                            {item.relevanceScore}% relevant
-                          </span>
-                        )}
-                      </div>
-                      <h4 className="font-medium text-sm">{item.title}</h4>
-                      {item.description && (
-                        <p className="text-sm text-muted-foreground mt-1 line-clamp-2">
-                          {item.description}
-                        </p>
-                      )}
-                    </div>
-                    {item.url && (
-                      <a href={item.url} target="_blank" rel="noopener noreferrer">
-                        <Button variant="ghost" size="sm">
-                          <ExternalLink className="h-4 w-4" />
-                        </Button>
-                      </a>
-                    )}
-                  </div>
-
-                  {/* AI Tip */}
-                  {item.aiTip && (
-                    <div className="bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-lg p-3 mt-2">
-                      <div className="flex items-start gap-2">
-                        <Lightbulb className="h-4 w-4 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" />
-                        <p className="text-sm text-blue-800 dark:text-blue-200">{item.aiTip}</p>
-                      </div>
-                    </div>
-                  )}
-
-                  <div className="flex items-center justify-between text-xs text-muted-foreground pt-2">
-                    <span>
-                      {item.publishedAt
-                        ? new Date(item.publishedAt).toLocaleDateString()
-                        : new Date(item.createdAt).toLocaleDateString()}
-                    </span>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => dismissItem(item.id)}
-                      className="h-auto py-1"
-                    >
-                      Dismiss
-                    </Button>
-                  </div>
-                </div>
+            <div className="space-y-4">
+              {intelligenceItems.filter(i => !i.dismissed).slice(0, 5).map((item) => (
+                <IntelligenceCard
+                  key={item.id}
+                  item={item}
+                  prospect={prospect}
+                  onDismiss={dismissItem}
+                  onUseInFollowUp={handleUseInFollowUp}
+                />
               ))}
+              {intelligenceItems.filter(i => !i.dismissed).length > 5 && (
+                <div className="text-center pt-2">
+                  <Link href="/acquisition/intelligence">
+                    <Button variant="outline" size="sm">
+                      View all {intelligenceItems.filter(i => !i.dismissed).length} items
+                    </Button>
+                  </Link>
+                </div>
+              )}
             </div>
           )}
         </CardContent>
@@ -931,6 +904,16 @@ export default function ProspectDetailPage() {
         prospectName={prospect.company}
         onConfirm={handleArchive}
       />
+
+      {/* Follow-up Email Dialog */}
+      {selectedIntelligence && (
+        <FollowupEmailDialog
+          open={followupDialogOpen}
+          onOpenChange={setFollowupDialogOpen}
+          item={selectedIntelligence}
+          prospect={prospect}
+        />
+      )}
     </div>
   )
 }

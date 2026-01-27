@@ -56,6 +56,16 @@ export type ProspectType = 'Media' | 'Sports Club' | 'Sports League' | 'Other'
 export type ProductType = 'Mobile app' | 'Website/CMS' | 'LitteraWorks' | 'CMS' | 'Other'
 export type IntelligenceSourceType = 'linkedin' | 'news' | 'sports' | 'job-change' | 'funding' | 'other'
 
+// Intelligence card types for rich UI rendering
+export type IntelligenceType =
+  | 'linkedin_post'    // Person posted on LinkedIn
+  | 'match_result'     // Sports match result
+  | 'news'             // News article about company
+  | 'job_change'       // Person changed jobs
+  | 'company_update'   // Company announcement (hiring, funding, etc.)
+  | 'funding'          // Funding round
+  | 'other'            // Catch-all
+
 // Constants
 export const PRODUCT_BADGE_COLORS: Record<ProductType, string> = {
   "Mobile app": "bg-blue-100 text-blue-700",
@@ -123,6 +133,7 @@ export interface IntelligenceItem {
   title: string
   description?: string
   sourceType: IntelligenceSourceType
+  intelligenceType?: IntelligenceType
   url?: string
   imageUrl?: string
   publishedAt?: string
@@ -130,6 +141,32 @@ export interface IntelligenceItem {
   dismissed: boolean
   aiTip?: string
   relevanceScore?: number
+
+  // Person-related fields (LinkedIn posts, job changes)
+  personName?: string
+  personPosition?: string
+  personLinkedinUrl?: string
+  personAvatarUrl?: string
+
+  // Company/source fields
+  companyName?: string
+  sourceName?: string
+  contentQuote?: string
+
+  // Match result fields (sports)
+  matchHomeTeam?: string
+  matchAwayTeam?: string
+  matchHomeScore?: number
+  matchAwayScore?: number
+  matchScorers?: string
+  matchLeague?: string
+
+  // Job change fields
+  previousPosition?: string
+  previousCompany?: string
+
+  // Country code for flag display
+  countryCode?: string
 }
 
 export interface EmailDraft {
