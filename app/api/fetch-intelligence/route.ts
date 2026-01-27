@@ -5,6 +5,14 @@ import type { IntelligenceType, IntelligenceSourceType } from "@/lib/types";
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
 
+interface NewsArticle {
+  title: string;
+  link: string;
+  pubDate: string;
+  description?: string;
+  sourceName?: string;
+}
+
 interface IntelligenceResult {
   id: string;
   prospectId?: string;
@@ -16,8 +24,6 @@ interface IntelligenceResult {
   publishedAt?: string;
   aiTip?: string;
   relevanceScore?: number;
-  personName?: string;
-  personPosition?: string;
   companyName?: string;
   sourceName?: string;
   contentQuote?: string;
@@ -29,118 +35,134 @@ interface IntelligenceResult {
 }
 
 /**
- * Fetch intelligence about a prospect using Gemini with web search grounding
+ * Fetch news from Google News RSS
  */
-async function fetchIntelligenceWithGemini(
-  companyName: string,
-  website?: string,
-  prospectType?: string,
-  contactName?: string
-): Promise<IntelligenceResult[]> {
+async function fetchGoogleNews(companyName: string, website?: string): Promise<NewsArticle[]> {
   try {
-    const searchContext = [
-      `Company: ${companyName}`,
-      website ? `Website: ${website}` : null,
-      prospectType ? `Type: ${prospectType}` : null,
-      contactName ? `Key contact: ${contactName}` : null,
-    ].filter(Boolean).join("\n");
-
-    const prompt = `You are a B2B sales intelligence assistant. Search for recent news, updates, and activities about this company:
-
-${searchContext}
-
-Find recent information (last 30-60 days) including:
-1. News articles and press releases
-2. Company announcements (partnerships, product launches, expansions)
-3. Leadership changes or new hires
-4. Funding rounds or acquisitions
-5. Industry mentions or awards
-${prospectType === "Sports Club" ? "6. Recent match results and sports news" : ""}
-
-For EACH piece of intelligence found, provide:
-- title: Clear headline (max 100 chars)
-- description: Brief summary (max 200 chars)
-- intelligenceType: One of [news, company_update, job_change, funding, match_result, other]
-- url: Source URL if available
-- publishedDate: Approximate date (YYYY-MM-DD format)
-- relevanceScore: 0-100 based on how useful this is for sales outreach
-- aiTip: One short actionable tip (max 80 chars) on how to use this in a follow-up email
-- contentQuote: Key quote or fact from the source (max 100 chars)
-${prospectType === "Sports Club" ? "- For match results: include homeTeam, awayTeam, homeScore, awayScore, league" : ""}
-
-Return JSON array:
-{
-  "items": [
-    {
-      "title": "...",
-      "description": "...",
-      "intelligenceType": "news",
-      "url": "https://...",
-      "publishedDate": "2026-01-20",
-      "relevanceScore": 85,
-      "aiTip": "Mention their recent partnership as conversation starter",
-      "contentQuote": "Company announced expansion to 3 new markets"
+    // Build search query
+    const searchTerms = [companyName];
+    if (website) {
+      const domain = website.replace(/^https?:\/\//, "").replace(/\/$/, "").split("/")[0];
+      searchTerms.push(domain);
     }
-  ]
+
+    const query = encodeURIComponent(searchTerms.join(" OR "));
+    const rssUrl = `https://news.google.com/rss/search?q=${query}&hl=en-US&gl=US&ceid=US:en`;
+
+    console.log(`Fetching news for: ${companyName}, URL: ${rssUrl}`);
+
+    const response = await fetch(rssUrl, {
+      headers: {
+        "User-Agent": "Mozilla/5.0 (compatible; NewsBot/1.0)",
+      },
+    });
+
+    if (!response.ok) {
+      console.error(`Google News fetch failed: ${response.status}`);
+      return [];
+    }
+
+    const xmlText = await response.text();
+
+    // Parse RSS XML
+    const articles: NewsArticle[] = [];
+    const itemRegex = /<item>([\s\S]*?)<\/item>/g;
+    const titleRegex = /<title>(?:<!\[CDATA\[)?(.*?)(?:\]\]>)?<\/title>/;
+    const linkRegex = /<link>(.*?)<\/link>/;
+    const pubDateRegex = /<pubDate>(.*?)<\/pubDate>/;
+    const descRegex = /<description>(?:<!\[CDATA\[)?([\s\S]*?)(?:\]\]>)?<\/description>/;
+    const sourceRegex = /<source[^>]*>(.*?)<\/source>/;
+
+    let match;
+    while ((match = itemRegex.exec(xmlText)) !== null && articles.length < 10) {
+      const item = match[1];
+
+      const titleMatch = titleRegex.exec(item);
+      const linkMatch = linkRegex.exec(item);
+      const pubDateMatch = pubDateRegex.exec(item);
+      const descMatch = descRegex.exec(item);
+      const sourceMatch = sourceRegex.exec(item);
+
+      if (titleMatch && linkMatch) {
+        articles.push({
+          title: titleMatch[1].trim(),
+          link: linkMatch[1].trim(),
+          pubDate: pubDateMatch ? pubDateMatch[1].trim() : new Date().toISOString(),
+          description: descMatch ? descMatch[1].trim().substring(0, 500) : undefined,
+          sourceName: sourceMatch ? sourceMatch[1].trim() : undefined,
+        });
+      }
+    }
+
+    console.log(`Found ${articles.length} articles for ${companyName}`);
+    return articles.slice(0, 5);
+  } catch (error) {
+    console.error("Error fetching Google News:", error);
+    return [];
+  }
 }
 
-If no relevant information is found, return: { "items": [] }
-Only include items with relevanceScore > 50.`;
+/**
+ * Analyze article with Gemini and generate sales tip
+ */
+async function analyzeArticle(
+  article: NewsArticle,
+  companyName: string,
+  prospectType?: string
+): Promise<{
+  relevanceScore: number;
+  aiTip: string;
+  intelligenceType: IntelligenceType;
+  contentQuote?: string;
+}> {
+  try {
+    const prompt = `Analyze this news article for B2B sales intelligence.
 
-    const model = genAI.getGenerativeModel({ model: "gemini-pro" });
+Company we're selling to: ${companyName}
+${prospectType ? `Company type: ${prospectType}` : ""}
+
+Article Title: ${article.title}
+Article Description: ${article.description || "No description available"}
+Source: ${article.sourceName || "Unknown"}
+
+Provide analysis in JSON format:
+{
+  "relevanceScore": <0-100, how useful is this for sales outreach to this company>,
+  "intelligenceType": "<news|company_update|job_change|funding|match_result|other>",
+  "aiTip": "<One short actionable tip (max 80 chars) for using this in a follow-up email>",
+  "contentQuote": "<Most relevant quote or fact from the article (max 100 chars)>"
+}
+
+Be generous with relevance scores - if the article mentions the company, score at least 60.
+For sports clubs, match results are highly relevant (score 80+).`;
+
+    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
     const result = await model.generateContent(prompt);
     const response = await result.response;
     let text = response.text();
 
     // Clean and parse JSON
     text = text.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
-
-    // Try to extract JSON if there's extra text
     const jsonMatch = text.match(/\{[\s\S]*\}/);
     if (jsonMatch) {
       text = jsonMatch[0];
     }
 
-    const data = JSON.parse(text);
-    const items = data.items || [];
+    const analysis = JSON.parse(text);
 
-    // Transform to IntelligenceResult format
-    return items.map((item: any) => {
-      const id = `intel-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-
-      // Map intelligenceType to sourceType
-      const typeToSource: Record<string, IntelligenceSourceType> = {
-        news: "news",
-        company_update: "other",
-        job_change: "job-change",
-        funding: "funding",
-        match_result: "sports",
-        other: "other",
-      };
-
-      return {
-        id,
-        title: item.title || "Untitled",
-        description: item.description,
-        sourceType: typeToSource[item.intelligenceType] || "news",
-        intelligenceType: item.intelligenceType || "news",
-        url: item.url,
-        publishedAt: item.publishedDate ? new Date(item.publishedDate).toISOString() : new Date().toISOString(),
-        aiTip: item.aiTip,
-        relevanceScore: Math.min(100, Math.max(0, item.relevanceScore || 50)),
-        companyName,
-        contentQuote: item.contentQuote,
-        // Match result fields
-        matchHomeTeam: item.homeTeam,
-        matchAwayTeam: item.awayTeam,
-        matchHomeScore: item.homeScore,
-        matchAwayScore: item.awayScore,
-        matchLeague: item.league,
-      };
-    });
+    return {
+      relevanceScore: Math.max(0, Math.min(100, analysis.relevanceScore || 60)),
+      aiTip: analysis.aiTip || "Review this article for conversation starters",
+      intelligenceType: analysis.intelligenceType || "news",
+      contentQuote: analysis.contentQuote,
+    };
   } catch (error) {
-    console.error("Error fetching intelligence with Gemini:", error);
-    return [];
+    console.error("Error analyzing article:", error);
+    return {
+      relevanceScore: 60,
+      aiTip: "Review this recent news for conversation starters",
+      intelligenceType: "news",
+    };
   }
 }
 
@@ -151,7 +173,6 @@ export async function POST(request: NextRequest) {
       prospectId,
       website,
       prospectType,
-      contactName,
       saveToDB = true,
     } = await request.json();
 
@@ -162,34 +183,79 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Fetch intelligence using Gemini
-    const items = await fetchIntelligenceWithGemini(
-      companyName,
-      website,
-      prospectType,
-      contactName
-    );
+    console.log(`Fetching intelligence for: ${companyName}`);
 
-    // Filter by relevance
-    const relevantItems = items.filter(item => (item.relevanceScore || 0) > 50);
+    // 1. Fetch news from Google News RSS
+    const articles = await fetchGoogleNews(companyName, website);
 
-    // Save to database if requested
+    if (articles.length === 0) {
+      console.log(`No articles found for ${companyName}`);
+      return NextResponse.json({
+        message: "No recent intelligence found for this company",
+        items: [],
+        newItemsCount: 0,
+      });
+    }
+
+    // 2. Analyze each article with Gemini
+    const intelligenceItems: IntelligenceResult[] = [];
+
+    for (const article of articles) {
+      const analysis = await analyzeArticle(article, companyName, prospectType);
+
+      // Map intelligence type to source type
+      const typeToSource: Record<string, IntelligenceSourceType> = {
+        news: "news",
+        company_update: "other",
+        job_change: "job-change",
+        funding: "funding",
+        match_result: "sports",
+        other: "other",
+      };
+
+      const id = `intel-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+
+      intelligenceItems.push({
+        id,
+        prospectId: prospectId || undefined,
+        title: article.title,
+        description: article.description,
+        sourceType: typeToSource[analysis.intelligenceType] || "news",
+        intelligenceType: analysis.intelligenceType,
+        url: article.link,
+        publishedAt: new Date(article.pubDate).toISOString(),
+        aiTip: analysis.aiTip,
+        relevanceScore: analysis.relevanceScore,
+        companyName,
+        sourceName: article.sourceName,
+        contentQuote: analysis.contentQuote,
+      });
+    }
+
+    // Sort by relevance
+    intelligenceItems.sort((a, b) => (b.relevanceScore || 0) - (a.relevanceScore || 0));
+
+    // Filter by relevance (lowered threshold to 40)
+    const relevantItems = intelligenceItems.filter(item => (item.relevanceScore || 0) >= 40);
+
+    console.log(`Found ${relevantItems.length} relevant items for ${companyName}`);
+
+    // 3. Save to database
     let savedCount = 0;
     if (saveToDB && relevantItems.length > 0 && prospectId) {
-      // Check for existing items to avoid duplicates
+      // Check for existing items
       const { data: existingItems } = await supabase
         .from("intelligence_items")
-        .select("url, title, published_at")
+        .select("url, title")
         .eq("prospect_id", prospectId);
 
-      const existingUrls = new Set((existingItems || []).filter(i => i.url).map(item => item.url));
-      const existingTitles = new Set((existingItems || []).map(item => `${item.title}|${item.published_at?.split('T')[0]}`));
+      const existingUrls = new Set((existingItems || []).filter(i => i.url).map(i => i.url));
+      const existingTitles = new Set((existingItems || []).map(i => i.title));
 
-      // Filter out duplicates
+      // Filter duplicates
       const newItems = relevantItems.filter(item => {
         if (item.url && existingUrls.has(item.url)) return false;
-        const titleKey = `${item.title}|${item.publishedAt?.split('T')[0]}`;
-        if (existingTitles.has(titleKey)) return false;
+        if (existingTitles.has(item.title)) return false;
         return true;
       });
 
@@ -209,18 +275,14 @@ export async function POST(request: NextRequest) {
               ai_tip: item.aiTip,
               relevance_score: item.relevanceScore,
               company_name: item.companyName,
+              source_name: item.sourceName,
               content_quote: item.contentQuote,
-              match_home_team: item.matchHomeTeam,
-              match_away_team: item.matchAwayTeam,
-              match_home_score: item.matchHomeScore,
-              match_away_score: item.matchAwayScore,
-              match_league: item.matchLeague,
               dismissed: false,
             }))
           );
 
         if (insertError) {
-          console.error("Error inserting intelligence items:", insertError);
+          console.error("Error inserting intelligence:", insertError);
         } else {
           savedCount = newItems.length;
         }
@@ -230,9 +292,9 @@ export async function POST(request: NextRequest) {
       await supabase
         .from("intelligence_refresh_log")
         .upsert({
-          id: `refresh-${prospectId}-gemini`,
+          id: `refresh-${prospectId}-news`,
           prospect_id: prospectId,
-          source: "gemini",
+          source: "news",
           last_refresh_at: new Date().toISOString(),
           status: "success",
           items_found: savedCount,
@@ -241,8 +303,10 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       message: savedCount > 0
-        ? `Found ${relevantItems.length} intelligence items, saved ${savedCount} new items`
-        : `Found ${relevantItems.length} intelligence items`,
+        ? `Found ${relevantItems.length} items, saved ${savedCount} new`
+        : relevantItems.length > 0
+        ? `Found ${relevantItems.length} items (already in database)`
+        : "No recent intelligence found",
       items: relevantItems,
       newItemsCount: savedCount,
     });
