@@ -9,7 +9,7 @@ interface NewsArticle {
   title: string;
   link: string;
   pubDate: string;
-  description?: string;
+  rawDescription?: string;
   sourceName?: string;
 }
 
@@ -35,11 +35,34 @@ interface IntelligenceResult {
 }
 
 /**
+ * Strip HTML tags and decode HTML entities
+ */
+function cleanHtml(html: string): string {
+  if (!html) return "";
+
+  // Decode HTML entities
+  let text = html
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&amp;/g, "&")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&nbsp;/g, " ");
+
+  // Remove HTML tags
+  text = text.replace(/<[^>]*>/g, "");
+
+  // Clean up whitespace
+  text = text.replace(/\s+/g, " ").trim();
+
+  return text;
+}
+
+/**
  * Fetch news from Google News RSS
  */
 async function fetchGoogleNews(companyName: string, website?: string): Promise<NewsArticle[]> {
   try {
-    // Build search query
     const searchTerms = [companyName];
     if (website) {
       const domain = website.replace(/^https?:\/\//, "").replace(/\/$/, "").split("/")[0];
@@ -49,22 +72,13 @@ async function fetchGoogleNews(companyName: string, website?: string): Promise<N
     const query = encodeURIComponent(searchTerms.join(" OR "));
     const rssUrl = `https://news.google.com/rss/search?q=${query}&hl=en-US&gl=US&ceid=US:en`;
 
-    console.log(`Fetching news for: ${companyName}, URL: ${rssUrl}`);
-
     const response = await fetch(rssUrl, {
-      headers: {
-        "User-Agent": "Mozilla/5.0 (compatible; NewsBot/1.0)",
-      },
+      headers: { "User-Agent": "Mozilla/5.0 (compatible; NewsBot/1.0)" },
     });
 
-    if (!response.ok) {
-      console.error(`Google News fetch failed: ${response.status}`);
-      return [];
-    }
+    if (!response.ok) return [];
 
     const xmlText = await response.text();
-
-    // Parse RSS XML
     const articles: NewsArticle[] = [];
     const itemRegex = /<item>([\s\S]*?)<\/item>/g;
     const titleRegex = /<title>(?:<!\[CDATA\[)?(.*?)(?:\]\]>)?<\/title>/;
@@ -74,9 +88,8 @@ async function fetchGoogleNews(companyName: string, website?: string): Promise<N
     const sourceRegex = /<source[^>]*>(.*?)<\/source>/;
 
     let match;
-    while ((match = itemRegex.exec(xmlText)) !== null && articles.length < 10) {
+    while ((match = itemRegex.exec(xmlText)) !== null && articles.length < 8) {
       const item = match[1];
-
       const titleMatch = titleRegex.exec(item);
       const linkMatch = linkRegex.exec(item);
       const pubDateMatch = pubDateRegex.exec(item);
@@ -85,17 +98,16 @@ async function fetchGoogleNews(companyName: string, website?: string): Promise<N
 
       if (titleMatch && linkMatch) {
         articles.push({
-          title: titleMatch[1].trim(),
+          title: cleanHtml(titleMatch[1]),
           link: linkMatch[1].trim(),
           pubDate: pubDateMatch ? pubDateMatch[1].trim() : new Date().toISOString(),
-          description: descMatch ? descMatch[1].trim().substring(0, 500) : undefined,
-          sourceName: sourceMatch ? sourceMatch[1].trim() : undefined,
+          rawDescription: descMatch ? cleanHtml(descMatch[1]) : undefined,
+          sourceName: sourceMatch ? cleanHtml(sourceMatch[1]) : undefined,
         });
       }
     }
 
-    console.log(`Found ${articles.length} articles for ${companyName}`);
-    return articles.slice(0, 5);
+    return articles;
   } catch (error) {
     console.error("Error fetching Google News:", error);
     return [];
@@ -103,66 +115,133 @@ async function fetchGoogleNews(companyName: string, website?: string): Promise<N
 }
 
 /**
- * Analyze article with Gemini and generate sales tip
+ * Use Gemini to analyze and summarize articles for the company
  */
-async function analyzeArticle(
-  article: NewsArticle,
+async function analyzeArticlesWithGemini(
+  articles: NewsArticle[],
   companyName: string,
   prospectType?: string
-): Promise<{
-  relevanceScore: number;
-  aiTip: string;
-  intelligenceType: IntelligenceType;
-  contentQuote?: string;
-}> {
+): Promise<IntelligenceResult[]> {
+  if (articles.length === 0) return [];
+
   try {
-    const prompt = `Analyze this news article for B2B sales intelligence.
+    const articlesText = articles.map((a, i) =>
+      `Article ${i + 1}:
+Title: ${a.title}
+Source: ${a.sourceName || "Unknown"}
+Date: ${a.pubDate}
+Raw content: ${a.rawDescription || "No description"}`
+    ).join("\n\n");
 
-Company we're selling to: ${companyName}
-${prospectType ? `Company type: ${prospectType}` : ""}
+    const prompt = `You are a B2B sales intelligence assistant. Analyze these news articles about "${companyName}" ${prospectType ? `(a ${prospectType})` : ""}.
 
-Article Title: ${article.title}
-Article Description: ${article.description || "No description available"}
-Source: ${article.sourceName || "Unknown"}
+${articlesText}
 
-Provide analysis in JSON format:
+For EACH article that is actually relevant to ${companyName}, create a clean intelligence item:
+
+1. **summary**: Write a clear, human-readable 1-2 sentence summary of what happened. NO HTML, NO URLs in the text. Just plain text explaining the news.
+
+2. **intelligenceType**: Categorize as one of:
+   - "news" - General news coverage
+   - "company_update" - Partnerships, product launches, business developments
+   - "match_result" - Sports match results (for sports clubs)
+   - "job_change" - Leadership changes, new hires
+   - "funding" - Investments, funding rounds
+
+3. **aiTip**: Write a SPECIFIC, actionable tip (max 80 chars) for how a salesperson could use this in outreach. Be concrete, e.g., "Congratulate them on the new signing" or "Ask about their expansion plans"
+
+4. **relevanceScore**: 0-100 based on how directly this relates to ${companyName}
+
+5. **keyFact**: One specific fact or quote from the article (max 80 chars)
+
+${prospectType === "Sports Club" ? `6. For match results, also include: homeTeam, awayTeam, homeScore, awayScore, league` : ""}
+
+Return JSON:
 {
-  "relevanceScore": <0-100, how useful is this for sales outreach to this company>,
-  "intelligenceType": "<news|company_update|job_change|funding|match_result|other>",
-  "aiTip": "<One short actionable tip (max 80 chars) for using this in a follow-up email>",
-  "contentQuote": "<Most relevant quote or fact from the article (max 100 chars)>"
+  "items": [
+    {
+      "articleIndex": 0,
+      "summary": "BAXI Manresa signed Danish forward Gustav Knudsen for the upcoming season, strengthening their roster.",
+      "intelligenceType": "company_update",
+      "aiTip": "Congratulate them on the new signing",
+      "relevanceScore": 85,
+      "keyFact": "Signed Gustav Knudsen as new forward"
+    }
+  ]
 }
 
-Be generous with relevance scores - if the article mentions the company, score at least 60.
-For sports clubs, match results are highly relevant (score 80+).`;
+Only include articles with relevanceScore >= 50. Skip irrelevant articles entirely.`;
 
     const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
     const result = await model.generateContent(prompt);
     const response = await result.response;
     let text = response.text();
 
-    // Clean and parse JSON
+    // Parse JSON
     text = text.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
     const jsonMatch = text.match(/\{[\s\S]*\}/);
     if (jsonMatch) {
       text = jsonMatch[0];
     }
 
-    const analysis = JSON.parse(text);
+    const data = JSON.parse(text);
+    const items = data.items || [];
 
-    return {
-      relevanceScore: Math.max(0, Math.min(100, analysis.relevanceScore || 60)),
-      aiTip: analysis.aiTip || "Review this article for conversation starters",
-      intelligenceType: analysis.intelligenceType || "news",
-      contentQuote: analysis.contentQuote,
+    // Map to IntelligenceResult
+    const typeToSource: Record<string, IntelligenceSourceType> = {
+      news: "news",
+      company_update: "other",
+      job_change: "job-change",
+      funding: "funding",
+      match_result: "sports",
     };
+
+    return items.map((item: any) => {
+      const articleIndex = item.articleIndex ?? 0;
+      const article = articles[articleIndex] || articles[0];
+      const id = `intel-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+
+      return {
+        id,
+        title: article.title,
+        description: item.summary,
+        sourceType: typeToSource[item.intelligenceType] || "news",
+        intelligenceType: item.intelligenceType || "news",
+        url: article.link,
+        publishedAt: new Date(article.pubDate).toISOString(),
+        aiTip: item.aiTip,
+        relevanceScore: item.relevanceScore || 60,
+        companyName,
+        sourceName: article.sourceName,
+        contentQuote: item.keyFact,
+        // Match result fields
+        matchHomeTeam: item.homeTeam,
+        matchAwayTeam: item.awayTeam,
+        matchHomeScore: item.homeScore,
+        matchAwayScore: item.awayScore,
+        matchLeague: item.league,
+      };
+    });
   } catch (error) {
-    console.error("Error analyzing article:", error);
-    return {
-      relevanceScore: 60,
-      aiTip: "Review this recent news for conversation starters",
-      intelligenceType: "news",
-    };
+    console.error("Error analyzing with Gemini:", error);
+
+    // Fallback: return basic cleaned items
+    return articles.slice(0, 3).map(article => {
+      const id = `intel-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+      return {
+        id,
+        title: article.title,
+        description: article.rawDescription?.substring(0, 200) || "News article about " + companyName,
+        sourceType: "news" as IntelligenceSourceType,
+        intelligenceType: "news" as IntelligenceType,
+        url: article.link,
+        publishedAt: new Date(article.pubDate).toISOString(),
+        aiTip: "Review this article for conversation topics",
+        relevanceScore: 60,
+        companyName,
+        sourceName: article.sourceName,
+      };
+    });
   }
 }
 
@@ -183,67 +262,27 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    console.log(`Fetching intelligence for: ${companyName}`);
-
-    // 1. Fetch news from Google News RSS
+    // 1. Fetch news articles
     const articles = await fetchGoogleNews(companyName, website);
 
     if (articles.length === 0) {
-      console.log(`No articles found for ${companyName}`);
       return NextResponse.json({
-        message: "No recent intelligence found for this company",
+        message: "No recent news found for this company",
         items: [],
         newItemsCount: 0,
       });
     }
 
-    // 2. Analyze each article with Gemini
-    const intelligenceItems: IntelligenceResult[] = [];
-
-    for (const article of articles) {
-      const analysis = await analyzeArticle(article, companyName, prospectType);
-
-      // Map intelligence type to source type
-      const typeToSource: Record<string, IntelligenceSourceType> = {
-        news: "news",
-        company_update: "other",
-        job_change: "job-change",
-        funding: "funding",
-        match_result: "sports",
-        other: "other",
-      };
-
-      const id = `intel-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-
-      intelligenceItems.push({
-        id,
-        prospectId: prospectId || undefined,
-        title: article.title,
-        description: article.description,
-        sourceType: typeToSource[analysis.intelligenceType] || "news",
-        intelligenceType: analysis.intelligenceType,
-        url: article.link,
-        publishedAt: new Date(article.pubDate).toISOString(),
-        aiTip: analysis.aiTip,
-        relevanceScore: analysis.relevanceScore,
-        companyName,
-        sourceName: article.sourceName,
-        contentQuote: analysis.contentQuote,
-      });
-    }
+    // 2. Have Gemini analyze and summarize
+    const intelligenceItems = await analyzeArticlesWithGemini(articles, companyName, prospectType);
 
     // Sort by relevance
     intelligenceItems.sort((a, b) => (b.relevanceScore || 0) - (a.relevanceScore || 0));
 
-    // Filter by relevance (lowered threshold to 40)
-    const relevantItems = intelligenceItems.filter(item => (item.relevanceScore || 0) >= 40);
-
-    console.log(`Found ${relevantItems.length} relevant items for ${companyName}`);
-
     // 3. Save to database
     let savedCount = 0;
-    if (saveToDB && relevantItems.length > 0 && prospectId) {
-      // Check for existing items
+    if (saveToDB && intelligenceItems.length > 0 && prospectId) {
+      // Check for duplicates
       const { data: existingItems } = await supabase
         .from("intelligence_items")
         .select("url, title")
@@ -252,39 +291,45 @@ export async function POST(request: NextRequest) {
       const existingUrls = new Set((existingItems || []).filter(i => i.url).map(i => i.url));
       const existingTitles = new Set((existingItems || []).map(i => i.title));
 
-      // Filter duplicates
-      const newItems = relevantItems.filter(item => {
+      const newItems = intelligenceItems.filter(item => {
         if (item.url && existingUrls.has(item.url)) return false;
         if (existingTitles.has(item.title)) return false;
         return true;
       });
 
       if (newItems.length > 0) {
-        const { error: insertError } = await supabase
-          .from("intelligence_items")
-          .insert(
-            newItems.map(item => ({
-              id: item.id,
-              prospect_id: prospectId,
-              title: item.title,
-              description: item.description,
-              source_type: item.sourceType,
-              intelligence_type: item.intelligenceType,
-              url: item.url,
-              published_at: item.publishedAt,
-              ai_tip: item.aiTip,
-              relevance_score: item.relevanceScore,
-              company_name: item.companyName,
-              source_name: item.sourceName,
-              content_quote: item.contentQuote,
-              dismissed: false,
-            }))
-          );
+        // Add prospectId to items
+        const itemsToInsert = newItems.map(item => ({
+          ...item,
+          id: item.id,
+          prospect_id: prospectId,
+          title: item.title,
+          description: item.description,
+          source_type: item.sourceType,
+          intelligence_type: item.intelligenceType,
+          url: item.url,
+          published_at: item.publishedAt,
+          ai_tip: item.aiTip,
+          relevance_score: item.relevanceScore,
+          company_name: item.companyName,
+          source_name: item.sourceName,
+          content_quote: item.contentQuote,
+          match_home_team: item.matchHomeTeam,
+          match_away_team: item.matchAwayTeam,
+          match_home_score: item.matchHomeScore,
+          match_away_score: item.matchAwayScore,
+          match_league: item.matchLeague,
+          dismissed: false,
+        }));
 
-        if (insertError) {
-          console.error("Error inserting intelligence:", insertError);
-        } else {
+        const { error } = await supabase
+          .from("intelligence_items")
+          .insert(itemsToInsert);
+
+        if (!error) {
           savedCount = newItems.length;
+        } else {
+          console.error("Insert error:", error);
         }
       }
 
@@ -303,15 +348,15 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       message: savedCount > 0
-        ? `Found ${relevantItems.length} items, saved ${savedCount} new`
-        : relevantItems.length > 0
-        ? `Found ${relevantItems.length} items (already in database)`
-        : "No recent intelligence found",
-      items: relevantItems,
+        ? `Saved ${savedCount} new intelligence items`
+        : intelligenceItems.length > 0
+        ? `Found ${intelligenceItems.length} items (already saved)`
+        : "No relevant news found",
+      items: intelligenceItems,
       newItemsCount: savedCount,
     });
   } catch (error) {
-    console.error("Error fetching intelligence:", error);
+    console.error("Error:", error);
     return NextResponse.json(
       { error: "Failed to fetch intelligence" },
       { status: 500 }
