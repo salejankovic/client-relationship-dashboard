@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { Search, ChevronDown, ChevronUp } from "lucide-react"
+import { Search, ChevronDown, ChevronUp, Filter, X } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -44,6 +44,18 @@ export function ClientList({
   const [cityFilter, setCityFilter] = useState<string | "All">("All")
   const [upsellFilter, setUpsellFilter] = useState<Product[]>([])
   const [hasActiveTodosFilter, setHasActiveTodosFilter] = useState(false)
+  const [filtersExpanded, setFiltersExpanded] = useState(true)
+
+  // Count active filters
+  const activeFilterCount = [
+    productFilter.length > 0,
+    branchFilter !== "All",
+    responsibleFilter !== "All",
+    countryFilter !== "All",
+    cityFilter !== "All",
+    upsellFilter.length > 0,
+    hasActiveTodosFilter,
+  ].filter(Boolean).length
 
   // Get unique countries and cities
   const uniqueCountries = Array.from(new Set(clients.map((c) => c.country).filter(Boolean))) as string[]
@@ -62,249 +74,278 @@ export function ClientList({
   })
 
   return (
-    <aside className="w-80 border-r border-border bg-card flex flex-col">
-      <div className="p-4 border-b border-border">
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Search clients..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-9 bg-background border-border"
-          />
-        </div>
-
-        <div className="mt-4">
-          <label className="text-xs font-semibold text-muted-foreground mb-2 block">FILTER BY PRODUCT</label>
-          <div className="flex flex-wrap gap-2">
-            <Button
-              variant={productFilter.length === 0 ? "default" : "outline"}
-              size="sm"
-              onClick={() => onProductFilterChange([])}
-              className="text-xs"
-            >
-              All
-            </Button>
-            <Button
-              variant={productFilter.includes("Mobile App") ? "default" : "outline"}
-              size="sm"
-              onClick={() =>
-                onProductFilterChange(
-                  productFilter.includes("Mobile App")
-                    ? productFilter.filter((p) => p !== "Mobile App")
-                    : [...productFilter, "Mobile App"],
-                )
-              }
-              className="text-xs"
-            >
-              mPanel/Apps
-            </Button>
-            <Button
-              variant={productFilter.includes("Litteraworks") ? "default" : "outline"}
-              size="sm"
-              onClick={() =>
-                onProductFilterChange(
-                  productFilter.includes("Litteraworks")
-                    ? productFilter.filter((p) => p !== "Litteraworks")
-                    : [...productFilter, "Litteraworks"],
-                )
-              }
-              className="text-xs"
-            >
-              Litteraworks
-            </Button>
-            <Button
-              variant={productFilter.includes("Pchella") ? "default" : "outline"}
-              size="sm"
-              onClick={() =>
-                onProductFilterChange(
-                  productFilter.includes("Pchella")
-                    ? productFilter.filter((p) => p !== "Pchella")
-                    : [...productFilter, "Pchella"],
-                )
-              }
-              className="text-xs"
-            >
-              Pchella
-            </Button>
+    <aside className="w-80 border-r border-border bg-card flex flex-col h-full">
+      {/* Search bar - always visible */}
+      <div className="p-4 border-b border-border flex-shrink-0">
+        <div className="flex gap-2">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Search clients..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-9 bg-background border-border"
+            />
           </div>
-        </div>
-
-        <div className="mt-4">
-          <label className="text-xs font-semibold text-muted-foreground mb-2 block">FILTER BY BRANCH</label>
-          <div className="flex gap-2">
-            <Button
-              variant={branchFilter === "All" ? "default" : "outline"}
-              size="sm"
-              onClick={() => setBranchFilter("All")}
-              className="flex-1"
-            >
-              All
-            </Button>
-            <Button
-              variant={branchFilter === "Media" ? "default" : "outline"}
-              size="sm"
-              onClick={() => setBranchFilter("Media")}
-              className="flex-1"
-            >
-              Media
-            </Button>
-            <Button
-              variant={branchFilter === "Sport" ? "default" : "outline"}
-              size="sm"
-              onClick={() => setBranchFilter("Sport")}
-              className="flex-1"
-            >
-              Sport
-            </Button>
-          </div>
-        </div>
-
-        <div className="mt-4">
-          <label className="text-xs font-semibold text-muted-foreground mb-2 block">FILTER BY RESPONSIBLE PERSON</label>
-          <Select value={responsibleFilter} onValueChange={(value) => setResponsibleFilter(value)}>
-            <SelectTrigger className="w-full">
-              <SelectValue placeholder="All" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="All">All</SelectItem>
-              {teamMembers.map((member) => (
-                <SelectItem key={member} value={member}>
-                  {member}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-
-        <div className="mt-4">
           <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setShowMoreFilters(!showMoreFilters)}
-            className="w-full flex items-center justify-between text-xs font-semibold text-muted-foreground hover:text-foreground"
+            variant={filtersExpanded ? "default" : "outline"}
+            size="icon"
+            onClick={() => setFiltersExpanded(!filtersExpanded)}
+            className="flex-shrink-0 relative"
+            title={filtersExpanded ? "Hide filters" : "Show filters"}
           >
-            <span>MORE FILTERS</span>
-            {showMoreFilters ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+            <Filter className="h-4 w-4" />
+            {!filtersExpanded && activeFilterCount > 0 && (
+              <span className="absolute -top-1 -right-1 bg-primary text-primary-foreground text-xs rounded-full h-4 w-4 flex items-center justify-center">
+                {activeFilterCount}
+              </span>
+            )}
           </Button>
-
-          {showMoreFilters && (
-            <div className="mt-3 space-y-4">
-              {/* Country Filter */}
-              <div>
-                <label className="text-xs font-semibold text-muted-foreground mb-2 block">COUNTRY</label>
-                <Select value={countryFilter} onValueChange={(value) => setCountryFilter(value)}>
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder="All" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="All">All</SelectItem>
-                    {uniqueCountries.map((country) => (
-                      <SelectItem key={country} value={country}>
-                        {country}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {/* City Filter */}
-              <div>
-                <label className="text-xs font-semibold text-muted-foreground mb-2 block">CITY</label>
-                <Select value={cityFilter} onValueChange={(value) => setCityFilter(value)}>
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder="All" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="All">All</SelectItem>
-                    {uniqueCities.map((city) => (
-                      <SelectItem key={city} value={city}>
-                        {city}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {/* Upsell Strategy Filter */}
-              <div>
-                <label className="text-xs font-semibold text-muted-foreground mb-2 block">UPSELL STRATEGY</label>
-                <div className="flex flex-wrap gap-2">
-                  <Button
-                    variant={upsellFilter.length === 0 ? "default" : "outline"}
-                    size="sm"
-                    onClick={() => setUpsellFilter([])}
-                    className="text-xs"
-                  >
-                    All
-                  </Button>
-                  <Button
-                    variant={upsellFilter.includes("Mobile App") ? "default" : "outline"}
-                    size="sm"
-                    onClick={() =>
-                      setUpsellFilter(
-                        upsellFilter.includes("Mobile App")
-                          ? upsellFilter.filter((p) => p !== "Mobile App")
-                          : [...upsellFilter, "Mobile App"],
-                      )
-                    }
-                    className="text-xs"
-                  >
-                    mPanel/Apps
-                  </Button>
-                  <Button
-                    variant={upsellFilter.includes("Litteraworks") ? "default" : "outline"}
-                    size="sm"
-                    onClick={() =>
-                      setUpsellFilter(
-                        upsellFilter.includes("Litteraworks")
-                          ? upsellFilter.filter((p) => p !== "Litteraworks")
-                          : [...upsellFilter, "Litteraworks"],
-                      )
-                    }
-                    className="text-xs"
-                  >
-                    Litteraworks
-                  </Button>
-                  <Button
-                    variant={upsellFilter.includes("Pchella") ? "default" : "outline"}
-                    size="sm"
-                    onClick={() =>
-                      setUpsellFilter(
-                        upsellFilter.includes("Pchella")
-                          ? upsellFilter.filter((p) => p !== "Pchella")
-                          : [...upsellFilter, "Pchella"],
-                      )
-                    }
-                    className="text-xs"
-                  >
-                    Pchella
-                  </Button>
-                </div>
-              </div>
-
-              {/* Has Active To-Dos Filter */}
-              <div>
-                <div className="flex items-center space-x-2">
-                  <Checkbox
-                    id="active-todos"
-                    checked={hasActiveTodosFilter}
-                    onCheckedChange={(checked) => setHasActiveTodosFilter(checked === true)}
-                  />
-                  <label
-                    htmlFor="active-todos"
-                    className="text-xs font-semibold text-muted-foreground cursor-pointer"
-                  >
-                    HAS ACTIVE TO-DOS
-                  </label>
-                </div>
-              </div>
-            </div>
-          )}
         </div>
       </div>
 
-      <div className="flex-1 overflow-auto p-4 space-y-2">
+      {/* Collapsible filter section with scroll */}
+      {filtersExpanded && (
+        <div className="border-b border-border flex-shrink-0 max-h-[40vh] overflow-y-auto">
+          <div className="p-4 space-y-4">
+            {/* Product Filter */}
+            <div>
+              <label className="text-xs font-semibold text-muted-foreground mb-2 block">FILTER BY PRODUCT</label>
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  variant={productFilter.length === 0 ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => onProductFilterChange([])}
+                  className="text-xs"
+                >
+                  All
+                </Button>
+                <Button
+                  variant={productFilter.includes("Mobile App") ? "default" : "outline"}
+                  size="sm"
+                  onClick={() =>
+                    onProductFilterChange(
+                      productFilter.includes("Mobile App")
+                        ? productFilter.filter((p) => p !== "Mobile App")
+                        : [...productFilter, "Mobile App"],
+                    )
+                  }
+                  className="text-xs"
+                >
+                  mPanel/Apps
+                </Button>
+                <Button
+                  variant={productFilter.includes("Litteraworks") ? "default" : "outline"}
+                  size="sm"
+                  onClick={() =>
+                    onProductFilterChange(
+                      productFilter.includes("Litteraworks")
+                        ? productFilter.filter((p) => p !== "Litteraworks")
+                        : [...productFilter, "Litteraworks"],
+                    )
+                  }
+                  className="text-xs"
+                >
+                  Litteraworks
+                </Button>
+                <Button
+                  variant={productFilter.includes("Pchella") ? "default" : "outline"}
+                  size="sm"
+                  onClick={() =>
+                    onProductFilterChange(
+                      productFilter.includes("Pchella")
+                        ? productFilter.filter((p) => p !== "Pchella")
+                        : [...productFilter, "Pchella"],
+                    )
+                  }
+                  className="text-xs"
+                >
+                  Pchella
+                </Button>
+              </div>
+            </div>
+
+            {/* Branch Filter */}
+            <div>
+              <label className="text-xs font-semibold text-muted-foreground mb-2 block">FILTER BY BRANCH</label>
+              <div className="flex gap-2">
+                <Button
+                  variant={branchFilter === "All" ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setBranchFilter("All")}
+                  className="flex-1"
+                >
+                  All
+                </Button>
+                <Button
+                  variant={branchFilter === "Media" ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setBranchFilter("Media")}
+                  className="flex-1"
+                >
+                  Media
+                </Button>
+                <Button
+                  variant={branchFilter === "Sport" ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setBranchFilter("Sport")}
+                  className="flex-1"
+                >
+                  Sport
+                </Button>
+              </div>
+            </div>
+
+            {/* Responsible Person Filter */}
+            <div>
+              <label className="text-xs font-semibold text-muted-foreground mb-2 block">FILTER BY RESPONSIBLE PERSON</label>
+              <Select value={responsibleFilter} onValueChange={(value) => setResponsibleFilter(value)}>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="All" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="All">All</SelectItem>
+                  {teamMembers.map((member) => (
+                    <SelectItem key={member} value={member}>
+                      {member}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* More Filters Toggle */}
+            <div>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowMoreFilters(!showMoreFilters)}
+                className="w-full flex items-center justify-between text-xs font-semibold text-muted-foreground hover:text-foreground"
+              >
+                <span>MORE FILTERS</span>
+                {showMoreFilters ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+              </Button>
+
+              {showMoreFilters && (
+                <div className="mt-3 space-y-4">
+                  {/* Country Filter */}
+                  <div>
+                    <label className="text-xs font-semibold text-muted-foreground mb-2 block">COUNTRY</label>
+                    <Select value={countryFilter} onValueChange={(value) => setCountryFilter(value)}>
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="All" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="All">All</SelectItem>
+                        {uniqueCountries.map((country) => (
+                          <SelectItem key={country} value={country}>
+                            {country}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {/* City Filter */}
+                  <div>
+                    <label className="text-xs font-semibold text-muted-foreground mb-2 block">CITY</label>
+                    <Select value={cityFilter} onValueChange={(value) => setCityFilter(value)}>
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="All" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="All">All</SelectItem>
+                        {uniqueCities.map((city) => (
+                          <SelectItem key={city} value={city}>
+                            {city}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {/* Upsell Strategy Filter */}
+                  <div>
+                    <label className="text-xs font-semibold text-muted-foreground mb-2 block">UPSELL STRATEGY</label>
+                    <div className="flex flex-wrap gap-2">
+                      <Button
+                        variant={upsellFilter.length === 0 ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => setUpsellFilter([])}
+                        className="text-xs"
+                      >
+                        All
+                      </Button>
+                      <Button
+                        variant={upsellFilter.includes("Mobile App") ? "default" : "outline"}
+                        size="sm"
+                        onClick={() =>
+                          setUpsellFilter(
+                            upsellFilter.includes("Mobile App")
+                              ? upsellFilter.filter((p) => p !== "Mobile App")
+                              : [...upsellFilter, "Mobile App"],
+                          )
+                        }
+                        className="text-xs"
+                      >
+                        mPanel/Apps
+                      </Button>
+                      <Button
+                        variant={upsellFilter.includes("Litteraworks") ? "default" : "outline"}
+                        size="sm"
+                        onClick={() =>
+                          setUpsellFilter(
+                            upsellFilter.includes("Litteraworks")
+                              ? upsellFilter.filter((p) => p !== "Litteraworks")
+                              : [...upsellFilter, "Litteraworks"],
+                          )
+                        }
+                        className="text-xs"
+                      >
+                        Litteraworks
+                      </Button>
+                      <Button
+                        variant={upsellFilter.includes("Pchella") ? "default" : "outline"}
+                        size="sm"
+                        onClick={() =>
+                          setUpsellFilter(
+                            upsellFilter.includes("Pchella")
+                              ? upsellFilter.filter((p) => p !== "Pchella")
+                              : [...upsellFilter, "Pchella"],
+                          )
+                        }
+                        className="text-xs"
+                      >
+                        Pchella
+                      </Button>
+                    </div>
+                  </div>
+
+                  {/* Has Active To-Dos Filter */}
+                  <div>
+                    <div className="flex items-center space-x-2">
+                      <Checkbox
+                        id="active-todos"
+                        checked={hasActiveTodosFilter}
+                        onCheckedChange={(checked) => setHasActiveTodosFilter(checked === true)}
+                      />
+                      <label
+                        htmlFor="active-todos"
+                        className="text-xs font-semibold text-muted-foreground cursor-pointer"
+                      >
+                        HAS ACTIVE TO-DOS
+                      </label>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Client list - always scrollable */}
+      <div className="flex-1 overflow-auto p-4 space-y-2 min-h-0">
         {filteredClients.map((client) => (
           <button
             key={client.id}
