@@ -50,12 +50,61 @@ function cleanHtml(text: string): string {
 }
 
 /**
+ * Get locale settings based on country
+ */
+function getLocaleForCountry(country?: string): { hl: string; gl: string; ceid: string } {
+  const localeMap: Record<string, { hl: string; gl: string; ceid: string }> = {
+    "Serbia": { hl: "sr", gl: "RS", ceid: "RS:sr" },
+    "Croatia": { hl: "hr", gl: "HR", ceid: "HR:hr" },
+    "Slovenia": { hl: "sl", gl: "SI", ceid: "SI:sl" },
+    "Bosnia and Herzegovina": { hl: "bs", gl: "BA", ceid: "BA:bs" },
+    "Montenegro": { hl: "sr", gl: "ME", ceid: "ME:sr" },
+    "North Macedonia": { hl: "mk", gl: "MK", ceid: "MK:mk" },
+    "Greece": { hl: "el", gl: "GR", ceid: "GR:el" },
+    "Belgium": { hl: "nl", gl: "BE", ceid: "BE:nl" },
+    "Georgia": { hl: "ka", gl: "GE", ceid: "GE:ka" },
+    "Germany": { hl: "de", gl: "DE", ceid: "DE:de" },
+    "France": { hl: "fr", gl: "FR", ceid: "FR:fr" },
+    "Italy": { hl: "it", gl: "IT", ceid: "IT:it" },
+    "Spain": { hl: "es", gl: "ES", ceid: "ES:es" },
+    "UK": { hl: "en", gl: "GB", ceid: "GB:en" },
+    "United Kingdom": { hl: "en", gl: "GB", ceid: "GB:en" },
+  };
+  return localeMap[country || ""] || { hl: "en", gl: "US", ceid: "US:en" };
+}
+
+/**
+ * Build search query with company context
+ */
+function buildSearchQuery(companyName: string, country?: string, prospectType?: string): string {
+  const parts = [companyName];
+
+  // Add country context for disambiguation
+  if (country) {
+    parts.push(country);
+  }
+
+  // Add type context for better results
+  if (prospectType === "Media") {
+    parts.push("media company news");
+  } else if (prospectType === "Sports Club") {
+    parts.push("club");
+  } else if (prospectType === "Sports League") {
+    parts.push("league");
+  }
+
+  return parts.join(" ");
+}
+
+/**
  * Fetch news from Google News RSS
  */
-async function fetchGoogleNews(query: string): Promise<NewsArticle[]> {
+async function fetchGoogleNews(companyName: string, country?: string, prospectType?: string): Promise<NewsArticle[]> {
   try {
+    const query = buildSearchQuery(companyName, country, prospectType);
     const searchQuery = encodeURIComponent(query);
-    const rssUrl = `https://news.google.com/rss/search?q=${searchQuery}&hl=en&gl=US&ceid=US:en`;
+    const locale = getLocaleForCountry(country);
+    const rssUrl = `https://news.google.com/rss/search?q=${searchQuery}&hl=${locale.hl}&gl=${locale.gl}&ceid=${locale.ceid}`;
 
     const response = await fetch(rssUrl, {
       headers: {
@@ -181,21 +230,31 @@ Score 0-39 (EXCLUDE):
 async function tryGeminiWithGrounding(
   companyName: string,
   website?: string,
-  prospectType?: string
+  prospectType?: string,
+  country?: string
 ): Promise<IntelligenceResult[] | null> {
   try {
     const searchContext = [
       `Company: ${companyName}`,
       website ? `Website: ${website}` : null,
       prospectType ? `Type: ${prospectType}` : null,
+      country ? `Country: ${country}` : null,
     ].filter(Boolean).join("\n");
 
     const companyTypeInstructions = getCompanyTypeInstructions(prospectType);
     const relevanceCriteria = getSalesRelevanceCriteria();
 
+    const verificationNote = country || website
+      ? `\nCRITICAL - COMPANY VERIFICATION:
+Only include news that is DEFINITELY about "${companyName}" ${country ? `based in ${country}` : ""}${website ? ` (website: ${website})` : ""}.
+If there are multiple companies with similar names, only include results about THIS specific company.
+If you're not sure if an article is about the right company, EXCLUDE it.`
+      : "";
+
     const prompt = `Search for recent news and updates about this company for B2B SALES purposes:
 
 ${searchContext}
+${verificationNote}
 
 ${companyTypeInstructions}
 
@@ -208,12 +267,13 @@ ${prospectType === "Sports Club" || prospectType === "Sports League" ? "- Sponso
 
 ${relevanceCriteria}
 
-AI TIP GUIDELINES - Make tips ACTIONABLE for sales:
-- For new leadership: "Reach out to introduce [our product type] to the new [role]"
+AI TIP GUIDELINES - Make tips ACTIONABLE and SPECIFIC for sales:
+- For new leadership: "Reach out to introduce your solutions to the new CEO/CTO"
 - For funding: "Good time to pitch - they have fresh budget"
-- For tech adoption: "They're investing in tech - highlight our [relevant capability]"
-- For sponsorship deals: "Marketing budget confirmed - pitch [relevant service]"
-- For expansion: "Growing company = growing needs - propose [solution]"
+- For tech adoption: "They're investing in tech - pitch digital solutions"
+- For sponsorship deals: "Marketing budget confirmed - pitch advertising services"
+- For expansion: "Growing company - propose scalable solutions"
+- Do NOT use brackets like [role] or [product] - write specific tips
 - Do NOT generate generic tips like "Monitor this" or "Track updates"
 
 For each piece of news found, return JSON with this structure:
@@ -221,7 +281,7 @@ For each piece of news found, return JSON with this structure:
   "items": [
     {
       "title": "Clear headline (max 100 chars)",
-      "summary": "1-2 sentence description",
+      "summary": "2-3 sentence description with key details and context",
       "intelligenceType": "news|company_update|match_result|job_change|funding",
       "sourceUrl": "https://source-url.com",
       "sourceName": "Publication Name",
@@ -237,7 +297,7 @@ Only include items with relevanceScore >= 50. If no relevant news found, return 
 
     // Try with googleSearch (requires paid plan for grounding)
     const model = genAI.getGenerativeModel({
-      model: "gemini-2.0-flash",
+      model: "gemini-1.5-flash",
       tools: [{ googleSearch: {} }],
     } as any);
 
@@ -300,10 +360,11 @@ Only include items with relevanceScore >= 50. If no relevant news found, return 
 async function fetchWithRSSFallback(
   companyName: string,
   website?: string,
-  prospectType?: string
+  prospectType?: string,
+  country?: string
 ): Promise<IntelligenceResult[]> {
-  // Fetch news from Google News RSS
-  const articles = await fetchGoogleNews(companyName);
+  // Fetch news from Google News RSS with country context
+  const articles = await fetchGoogleNews(companyName, country, prospectType);
 
   if (articles.length === 0) {
     console.log("No articles found in Google News for:", companyName);
@@ -313,7 +374,7 @@ async function fetchWithRSSFallback(
   console.log(`Found ${articles.length} articles for ${companyName}, analyzing with Gemini...`);
 
   // Use Gemini to analyze and structure the news
-  const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+  const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
   const articlesContext = articles.map((a, i) =>
     `${i + 1}. "${a.title}" - ${a.source} (${a.pubDate})\n   ${a.snippet}\n   URL: ${a.link}`
@@ -322,12 +383,21 @@ async function fetchWithRSSFallback(
   const companyTypeInstructions = getCompanyTypeInstructions(prospectType);
   const relevanceCriteria = getSalesRelevanceCriteria();
 
+  const verificationNote = country || website
+    ? `\nCRITICAL - COMPANY VERIFICATION:
+Only include articles that are DEFINITELY about "${companyName}" ${country ? `based in ${country}` : ""}${website ? ` (website: ${website})` : ""}.
+If an article is about a DIFFERENT company with a similar name, set relevanceScore to 0 and EXCLUDE it.
+For example, if searching for "NIN" (Serbian magazine) but find "NIN" (National Institute of Nutrition in India), EXCLUDE it.`
+    : "";
+
   const prompt = `Analyze these news articles about "${companyName}" and identify the most relevant ones for B2B SALES outreach.
 
 Company context:
 - Name: ${companyName}
 ${website ? `- Website: ${website}` : ""}
 ${prospectType ? `- Type: ${prospectType}` : ""}
+${country ? `- Country: ${country}` : ""}
+${verificationNote}
 
 ${companyTypeInstructions}
 
@@ -336,19 +406,20 @@ ${articlesContext}
 
 ${relevanceCriteria}
 
-AI TIP GUIDELINES - Make tips ACTIONABLE for sales:
-- For new leadership: "Reach out to introduce [our product type] to the new [role]"
+AI TIP GUIDELINES - Make tips ACTIONABLE and SPECIFIC for sales:
+- For new leadership: "Reach out to introduce your solutions to the new CEO/CTO"
 - For funding: "Good time to pitch - they have fresh budget"
-- For tech adoption: "They're investing in tech - highlight our [relevant capability]"
-- For sponsorship deals: "Marketing budget confirmed - pitch [relevant service]"
-- For expansion: "Growing company = growing needs - propose [solution]"
+- For tech adoption: "They're investing in tech - pitch digital solutions"
+- For sponsorship deals: "Marketing budget confirmed - pitch advertising services"
+- For expansion: "Growing company - propose scalable solutions"
+- Do NOT use brackets like [role] or [product] - write specific, concrete tips
 - Do NOT generate generic tips like "Monitor this" or "Track updates" or "Keep an eye on"
 
 For each relevant article (max 5), provide:
 1. A clean, professional title (rewrite if needed)
-2. A 1-2 sentence summary in plain English
+2. A 2-3 sentence summary with key details, context, and why it matters
 3. Type: news, company_update, job_change, funding, or match_result
-4. A SPECIFIC, ACTIONABLE sales tip (how to use this in outreach)
+4. A SPECIFIC, ACTIONABLE sales tip (how to use this in outreach) - NO brackets or placeholders
 5. One key fact or quote from the article
 6. Relevance score (0-100) based on B2B sales value
 
@@ -358,9 +429,9 @@ Return JSON:
     {
       "originalIndex": 1,
       "title": "Clean headline",
-      "summary": "Clear summary without HTML",
+      "summary": "2-3 sentence summary with context",
       "intelligenceType": "news",
-      "aiTip": "Actionable sales tip",
+      "aiTip": "Specific actionable sales tip",
       "keyFact": "Key fact or quote",
       "relevanceScore": 85
     }
@@ -421,11 +492,12 @@ Only include articles with relevanceScore >= 50. If none are relevant, return {"
 async function fetchIntelligenceWithGemini(
   companyName: string,
   website?: string,
-  prospectType?: string
+  prospectType?: string,
+  country?: string
 ): Promise<IntelligenceResult[]> {
   // Try Gemini with Google Search grounding first
-  console.log(`Trying Gemini grounding for: ${companyName}`);
-  const groundingResults = await tryGeminiWithGrounding(companyName, website, prospectType);
+  console.log(`Trying Gemini grounding for: ${companyName}${country ? ` (${country})` : ""}`);
+  const groundingResults = await tryGeminiWithGrounding(companyName, website, prospectType, country);
 
   if (groundingResults && groundingResults.length > 0) {
     console.log(`Gemini grounding returned ${groundingResults.length} items`);
@@ -434,7 +506,7 @@ async function fetchIntelligenceWithGemini(
 
   // Fallback to RSS + Gemini analysis
   console.log(`Falling back to RSS for: ${companyName}`);
-  return fetchWithRSSFallback(companyName, website, prospectType);
+  return fetchWithRSSFallback(companyName, website, prospectType, country);
 }
 
 export async function POST(request: NextRequest) {
@@ -444,6 +516,7 @@ export async function POST(request: NextRequest) {
       prospectId,
       website,
       prospectType,
+      country,
       saveToDB = true,
     } = await request.json();
 
@@ -454,10 +527,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    console.log(`Fetching intelligence for: ${companyName}`);
+    console.log(`Fetching intelligence for: ${companyName}${country ? ` (${country})` : ""}`);
 
     // Fetch intelligence using Gemini with web search
-    const intelligenceItems = await fetchIntelligenceWithGemini(companyName, website, prospectType);
+    const intelligenceItems = await fetchIntelligenceWithGemini(companyName, website, prospectType, country);
 
     if (intelligenceItems.length === 0) {
       return NextResponse.json({

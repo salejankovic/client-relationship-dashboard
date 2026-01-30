@@ -130,6 +130,7 @@ export default function ProspectDetailPage() {
           prospectId: prospect.id,
           website: prospect.website,
           prospectType: prospect.prospectType,
+          country: prospect.country,
           contactName: primaryContact?.name,
           saveToDB: true,
         }),
