@@ -103,6 +103,79 @@ async function fetchGoogleNews(query: string): Promise<NewsArticle[]> {
 }
 
 /**
+ * Get company-type-specific filtering instructions
+ */
+function getCompanyTypeInstructions(prospectType?: string): string {
+  if (prospectType === "Media") {
+    return `
+CRITICAL - MEDIA COMPANY RULES:
+This is a MEDIA/PUBLISHING company. They publish news articles as their core business.
+- ONLY include news where ${prospectType} IS THE SUBJECT of the article, not the publisher
+- Look for: "${prospectType} announces", "${prospectType} acquires", leadership changes AT the company, financial results, partnerships, layoffs, restructuring
+- EXCLUDE: Articles that this company published about other topics (politics, sports, entertainment, etc.)
+- EXCLUDE: Editorial content, opinion pieces, or news coverage they produce
+- If the source name matches the company name, it's likely THEIR content - exclude it unless it's about the company itself`;
+  }
+
+  if (prospectType === "Sports Club" || prospectType === "Sports League") {
+    return `
+SPORTS ORGANIZATION RULES:
+This is a sports organization. Focus on business-relevant news, not match operations.
+INCLUDE:
+- Sponsorship deals and partnerships (very valuable for B2B sales!)
+- Stadium/arena developments, renovations, naming rights
+- Leadership/management changes (new CEO, President, Commercial Director)
+- Financial news (investments, revenue reports, ownership changes)
+- Major player signings that made headlines (conversation starters)
+- Significant match results from important games (derbies, finals, championships)
+- Broadcasting deals, media rights
+
+EXCLUDE:
+- Player injuries and medical updates
+- Match-by-match results for regular season games
+- Training camp news
+- Player statistics and performance analysis
+- Fantasy sports content`;
+  }
+
+  return "";
+}
+
+/**
+ * Get sales-focused relevance scoring criteria
+ */
+function getSalesRelevanceCriteria(): string {
+  return `
+RELEVANCE SCORING (0-100) - Focus on B2B SALES VALUE:
+Score 80-100 (High Priority):
+- New leadership (CEO, CTO, CDO, CMO) = opportunity to introduce solutions
+- Funding round or investment = they have budget
+- Expansion or new office = growing, may need services
+- Technology adoption news = investing in tech
+- Partnership announcements = open to new vendors
+- Sponsorship deals (for sports) = marketing budget available
+
+Score 60-79 (Medium Priority):
+- Financial results (positive) = healthy company
+- Product launches = active company
+- Awards or recognition = conversation starter
+- Major player signings (sports) = conversation starter
+- Significant match wins (finals, derbies)
+
+Score 40-59 (Low Priority):
+- General company mentions
+- Industry news that mentions them
+- Minor operational updates
+
+Score 0-39 (EXCLUDE):
+- Articles PUBLISHED BY the company (for media companies)
+- Player injuries/medical updates
+- Routine match results
+- Operational noise with no sales angle
+- Content where the company is just mentioned in passing`;
+}
+
+/**
  * Try Gemini with Google Search Retrieval grounding
  */
 async function tryGeminiWithGrounding(
@@ -117,16 +190,31 @@ async function tryGeminiWithGrounding(
       prospectType ? `Type: ${prospectType}` : null,
     ].filter(Boolean).join("\n");
 
-    const prompt = `Search for recent news and updates about this company:
+    const companyTypeInstructions = getCompanyTypeInstructions(prospectType);
+    const relevanceCriteria = getSalesRelevanceCriteria();
+
+    const prompt = `Search for recent news and updates about this company for B2B SALES purposes:
 
 ${searchContext}
 
+${companyTypeInstructions}
+
 Find information from the last 30-60 days including:
-- News articles and press releases
 - Company announcements, partnerships, product launches
-- Leadership changes or new hires
-- Funding rounds or acquisitions
-${prospectType === "Sports Club" ? "- Recent match results and sports news" : ""}
+- Leadership changes or new hires (especially C-level)
+- Funding rounds, acquisitions, or investments
+- Expansion news (new offices, markets, products)
+${prospectType === "Sports Club" || prospectType === "Sports League" ? "- Sponsorship deals, stadium news, major match results (finals, derbies only)" : ""}
+
+${relevanceCriteria}
+
+AI TIP GUIDELINES - Make tips ACTIONABLE for sales:
+- For new leadership: "Reach out to introduce [our product type] to the new [role]"
+- For funding: "Good time to pitch - they have fresh budget"
+- For tech adoption: "They're investing in tech - highlight our [relevant capability]"
+- For sponsorship deals: "Marketing budget confirmed - pitch [relevant service]"
+- For expansion: "Growing company = growing needs - propose [solution]"
+- Do NOT generate generic tips like "Monitor this" or "Track updates"
 
 For each piece of news found, return JSON with this structure:
 {
@@ -138,14 +226,14 @@ For each piece of news found, return JSON with this structure:
       "sourceUrl": "https://source-url.com",
       "sourceName": "Publication Name",
       "publishedDate": "2026-01-15",
-      "aiTip": "Sales tip (max 80 chars)",
+      "aiTip": "Actionable sales tip (max 80 chars)",
       "keyFact": "Key fact (max 80 chars)",
       "relevanceScore": 85
     }
   ]
 }
 
-Only include items with relevanceScore >= 50. If no news found, return {"items": []}`;
+Only include items with relevanceScore >= 50. If no relevant news found, return {"items": []}`;
 
     // Try with googleSearch (requires paid plan for grounding)
     const model = genAI.getGenerativeModel({
@@ -231,23 +319,38 @@ async function fetchWithRSSFallback(
     `${i + 1}. "${a.title}" - ${a.source} (${a.pubDate})\n   ${a.snippet}\n   URL: ${a.link}`
   ).join("\n\n");
 
-  const prompt = `Analyze these news articles about "${companyName}" and identify the most relevant ones for B2B sales outreach.
+  const companyTypeInstructions = getCompanyTypeInstructions(prospectType);
+  const relevanceCriteria = getSalesRelevanceCriteria();
+
+  const prompt = `Analyze these news articles about "${companyName}" and identify the most relevant ones for B2B SALES outreach.
 
 Company context:
 - Name: ${companyName}
 ${website ? `- Website: ${website}` : ""}
 ${prospectType ? `- Type: ${prospectType}` : ""}
 
+${companyTypeInstructions}
+
 Articles found:
 ${articlesContext}
+
+${relevanceCriteria}
+
+AI TIP GUIDELINES - Make tips ACTIONABLE for sales:
+- For new leadership: "Reach out to introduce [our product type] to the new [role]"
+- For funding: "Good time to pitch - they have fresh budget"
+- For tech adoption: "They're investing in tech - highlight our [relevant capability]"
+- For sponsorship deals: "Marketing budget confirmed - pitch [relevant service]"
+- For expansion: "Growing company = growing needs - propose [solution]"
+- Do NOT generate generic tips like "Monitor this" or "Track updates" or "Keep an eye on"
 
 For each relevant article (max 5), provide:
 1. A clean, professional title (rewrite if needed)
 2. A 1-2 sentence summary in plain English
 3. Type: news, company_update, job_change, funding, or match_result
-4. A specific sales tip (how to use this in outreach)
+4. A SPECIFIC, ACTIONABLE sales tip (how to use this in outreach)
 5. One key fact or quote from the article
-6. Relevance score (0-100) for B2B sales
+6. Relevance score (0-100) based on B2B sales value
 
 Return JSON:
 {
