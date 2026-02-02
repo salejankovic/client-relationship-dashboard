@@ -308,7 +308,7 @@ Only include items with relevanceScore >= 50. If no relevant news found, return 
 
     // Try with googleSearch tool for grounding
     const model = genAI.getGenerativeModel({
-      model: "gemini-3.0-flash",
+      model: "gemini-2.5-flash",
       tools: [{ googleSearch: {} }],
     } as any);
 
@@ -386,7 +386,7 @@ async function fetchWithRSSFallback(
   console.log(`Found ${articles.length} articles for ${companyName}, analyzing with Gemini...`);
 
   // Use Gemini to analyze and structure the news
-  const model = genAI.getGenerativeModel({ model: "gemini-3.0-flash" });
+  const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
   const articlesContext = articles.map((a, i) =>
     `${i + 1}. "${a.title}" - ${a.source} (${a.pubDate})\n   ${a.snippet}\n   URL: ${a.link}`
@@ -510,7 +510,7 @@ async function fetchWithGeminiKnowledge(
   try {
     console.log(`Using Gemini knowledge fallback for: ${companyName}`);
 
-    const model = genAI.getGenerativeModel({ model: "gemini-3.0-flash" });
+    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
     const searchContext = [
       `Company: ${companyName}`,

@@ -2,7 +2,7 @@
 
 ## AI Models Used
 
-All AI features use **`gemini-3.0-flash`** for consistency and reliability.
+All AI features use **`gemini-2.5-flash`** for consistency and reliability.
 
 ### Intelligence Fetching (`app/api/fetch-intelligence/route.ts`)
 - **Purpose**: Fetch and analyze news/intelligence about prospects

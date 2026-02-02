@@ -41,7 +41,7 @@ Provide a brief analysis (2-3 sentences) covering:
 
 Keep it concise and actionable. Write in a professional but friendly tone.`;
 
-    const model = genAI.getGenerativeModel({ model: "gemini-3.0-flash" });
+    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
     const result = await model.generateContent(prompt);
     const response = await result.response;
     const insights = response.text();

@@ -35,7 +35,7 @@ Format your response as JSON:
   "body": "Full email body"
 }`;
 
-    const model = genAI.getGenerativeModel({ model: "gemini-3.0-flash" });
+    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
     const result = await model.generateContent(prompt);
     const response = await result.response;
     let text = response.text();
