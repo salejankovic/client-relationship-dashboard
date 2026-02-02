@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -20,6 +20,53 @@ import {
   Target,
   Lightbulb,
 } from "lucide-react";
+
+const CACHE_DURATION_MS = 24 * 60 * 60 * 1000; // 24 hours
+
+function getCacheKey(prospectId: string): string {
+  return `ai-insights-${prospectId}`;
+}
+
+function getCachedInsight(prospectId: string): AIInsight | null {
+  try {
+    const cached = localStorage.getItem(getCacheKey(prospectId));
+    if (!cached) return null;
+
+    const insight: AIInsight = JSON.parse(cached);
+    return insight;
+  } catch {
+    return null;
+  }
+}
+
+function setCachedInsight(prospectId: string, insight: AIInsight): void {
+  try {
+    localStorage.setItem(getCacheKey(prospectId), JSON.stringify(insight));
+  } catch {
+    // localStorage might be full or disabled
+  }
+}
+
+function isInsightStale(insight: AIInsight): boolean {
+  if (!insight.generatedAt) return true;
+  const generatedTime = new Date(insight.generatedAt).getTime();
+  const now = Date.now();
+  return now - generatedTime > CACHE_DURATION_MS;
+}
+
+function formatTimeAgo(dateString: string): string {
+  const date = new Date(dateString);
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+  const diffMins = Math.floor(diffMs / (1000 * 60));
+  const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+
+  if (diffMins < 1) return "just now";
+  if (diffMins < 60) return `${diffMins}m ago`;
+  if (diffHours < 24) return `${diffHours}h ago`;
+  return `${diffDays}d ago`;
+}
 
 interface AIInsightsCardProps {
   prospect: Prospect;
@@ -84,7 +131,7 @@ async function fetchAIInsights(prospect: Prospect): Promise<AIInsight> {
       riskLevel: data.riskLevel,
       bestTimeToReach: nextBestTime,
       generatedAt: new Date().toISOString(),
-      aiModel: "gemini-pro",
+      aiModel: "gemini-2.5-flash",
     };
   } catch (error) {
     console.error("Error fetching AI insights:", error);
@@ -95,77 +142,45 @@ async function fetchAIInsights(prospect: Prospect): Promise<AIInsight> {
 export function AIInsightsCard({ prospect, compact = false }: AIInsightsCardProps) {
   const [insight, setInsight] = useState<AIInsight | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [hasGenerated, setHasGenerated] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const generateInsights = async () => {
+  const generateInsights = useCallback(async (force = false) => {
+    // Check cache first (unless forcing refresh)
+    if (!force) {
+      const cached = getCachedInsight(prospect.id);
+      if (cached && !isInsightStale(cached)) {
+        setInsight(cached);
+        return;
+      }
+    }
+
     setIsLoading(true);
     setError(null);
     try {
       const insights = await fetchAIInsights(prospect);
       setInsight(insights);
-      setHasGenerated(true);
+      setCachedInsight(prospect.id, insights);
     } catch (err) {
       console.error("Error generating insights:", err);
       setError("Failed to generate insights. Please try again.");
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [prospect]);
 
-  // Initial load
+  // Initial load - check cache or generate if stale/missing
   useEffect(() => {
-    if (!hasGenerated) {
-      generateInsights();
-    }
-  }, [prospect.id]);
-
-  // Auto-refresh every 5 minutes when page is visible
-  useEffect(() => {
-    if (!hasGenerated || compact) return; // Skip auto-refresh for compact mode
-
-    const AUTO_REFRESH_INTERVAL = 5 * 60 * 1000; // 5 minutes
-    let intervalId: NodeJS.Timeout | null = null;
-
-    const startAutoRefresh = () => {
-      if (intervalId) return; // Already running
-      intervalId = setInterval(() => {
-        if (document.visibilityState === "visible") {
-          generateInsights();
-        }
-      }, AUTO_REFRESH_INTERVAL);
-    };
-
-    const stopAutoRefresh = () => {
-      if (intervalId) {
-        clearInterval(intervalId);
-        intervalId = null;
+    const cached = getCachedInsight(prospect.id);
+    if (cached) {
+      setInsight(cached);
+      // If stale, refresh in background
+      if (isInsightStale(cached)) {
+        generateInsights(true);
       }
-    };
-
-    // Handle visibility change
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === "visible") {
-        startAutoRefresh();
-      } else {
-        stopAutoRefresh();
-      }
-    };
-
-    // Start if page is visible
-    if (document.visibilityState === "visible") {
-      startAutoRefresh();
+    } else {
+      generateInsights(false);
     }
-
-    // Listen for visibility changes
-    document.addEventListener("visibilitychange", handleVisibilityChange);
-
-    // Cleanup
-    return () => {
-      stopAutoRefresh();
-      document.removeEventListener("visibilitychange", handleVisibilityChange);
-    };
-  }, [hasGenerated, compact, prospect.id]);
+  }, [prospect.id, generateInsights]);
 
   const SentimentIcon = insight?.sentiment === "positive" ? TrendingUp : insight?.sentiment === "negative" ? TrendingDown : Minus;
   const sentimentColor = insight?.sentiment === "positive" ? "text-green-600" : insight?.sentiment === "negative" ? "text-red-600" : "text-yellow-600";
@@ -182,7 +197,7 @@ export function AIInsightsCard({ prospect, compact = false }: AIInsightsCardProp
           ) : error ? (
             <div className="text-center py-2">
               <p className="text-xs text-red-600 mb-2">{error}</p>
-              <Button size="sm" variant="outline" onClick={generateInsights}>
+              <Button size="sm" variant="outline" onClick={() => generateInsights(true)}>
                 Retry
               </Button>
             </div>
@@ -192,9 +207,14 @@ export function AIInsightsCard({ prospect, compact = false }: AIInsightsCardProp
                 <div className="flex items-center gap-2">
                   <Brain className="w-4 h-4 text-blue-600" />
                   <span className="text-sm font-medium">AI Analysis</span>
+                  {insight.generatedAt && (
+                    <span className="text-xs text-muted-foreground">
+                      {formatTimeAgo(insight.generatedAt)}
+                    </span>
+                  )}
                 </div>
-                <Button variant="ghost" size="icon" className="h-6 w-6" onClick={generateInsights}>
-                  <RefreshCw className="w-3 h-3" />
+                <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => generateInsights(true)} disabled={isLoading}>
+                  <RefreshCw className={`w-3 h-3 ${isLoading ? "animate-spin" : ""}`} />
                 </Button>
               </div>
               <div className="flex items-center gap-4">
@@ -222,8 +242,13 @@ export function AIInsightsCard({ prospect, compact = false }: AIInsightsCardProp
           <span className="flex items-center gap-2">
             <Sparkles className="w-4 h-4 text-blue-600" />
             AI Insights
+            {insight?.generatedAt && (
+              <span className="text-xs font-normal text-muted-foreground">
+                Updated {formatTimeAgo(insight.generatedAt)}
+              </span>
+            )}
           </span>
-          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={generateInsights} disabled={isLoading}>
+          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => generateInsights(true)} disabled={isLoading}>
             <RefreshCw className={`w-4 h-4 ${isLoading ? "animate-spin" : ""}`} />
           </Button>
         </CardTitle>
@@ -237,7 +262,7 @@ export function AIInsightsCard({ prospect, compact = false }: AIInsightsCardProp
         ) : error ? (
           <div className="text-center py-6">
             <p className="text-sm text-red-600 mb-3">{error}</p>
-            <Button size="sm" onClick={generateInsights}>
+            <Button size="sm" onClick={() => generateInsights(true)}>
               Try Again
             </Button>
           </div>
