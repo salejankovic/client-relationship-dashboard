@@ -111,7 +111,7 @@ export default function ClientDashboard() {
       ) : activeView === "tasks" ? (
         <div className="flex flex-1 overflow-hidden">
           <div className="w-96 border-r border-border">
-            <TaskBoard clients={clients} onUpdateClient={handleClientUpdate} />
+            <TaskBoard clients={clients} onUpdateClient={handleClientUpdate} onSelectClient={setSelectedClient} />
           </div>
           <main className="flex-1 overflow-auto">
             {selectedClient ? (

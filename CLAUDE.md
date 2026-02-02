@@ -2,16 +2,23 @@
 
 ## AI Models Used
 
+All AI features use **`gemini-3.0-flash`** for consistency and reliability.
+
 ### Intelligence Fetching (`app/api/fetch-intelligence/route.ts`)
-- **Model**: `gemini-1.5-flash`
 - **Purpose**: Fetch and analyze news/intelligence about prospects
 - **Features**:
   - Primary: Gemini with Google Search grounding for real-time web search
-  - Fallback: Google News RSS + Gemini analysis
+  - Fallback 1: Google News RSS + Gemini analysis
+  - Fallback 2: Gemini knowledge base (if RSS fails)
 
 ### Email Generation (`app/api/intelligence/generate-followup/route.ts`)
-- **Model**: `gemini-pro`
 - **Purpose**: Generate follow-up emails based on intelligence
+
+### AI Insights (`app/api/generate-insights/route.ts`)
+- **Purpose**: Analyze prospect engagement and provide recommendations
+
+### Email Drafts (`app/api/generate-email/route.ts`)
+- **Purpose**: Generate personalized sales emails
 
 ## Intelligence System Architecture
 

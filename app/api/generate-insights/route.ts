@@ -1,10 +1,19 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { NextRequest, NextResponse } from "next/server";
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
+const apiKey = process.env.GEMINI_API_KEY || "";
+const genAI = new GoogleGenerativeAI(apiKey);
 
 export async function POST(request: NextRequest) {
   try {
+    if (!apiKey) {
+      console.error("GEMINI_API_KEY is not set");
+      return NextResponse.json(
+        { error: "API key not configured" },
+        { status: 500 }
+      );
+    }
+
     const { company, daysSinceContact, status, dealValue, productType, nextAction, lastActivity } = await request.json();
 
     // Determine health status
@@ -32,7 +41,7 @@ Provide a brief analysis (2-3 sentences) covering:
 
 Keep it concise and actionable. Write in a professional but friendly tone.`;
 
-    const model = genAI.getGenerativeModel({ model: "gemini-pro" });
+    const model = genAI.getGenerativeModel({ model: "gemini-3.0-flash" });
     const result = await model.generateContent(prompt);
     const response = await result.response;
     const insights = response.text();
@@ -58,10 +67,10 @@ Keep it concise and actionable. Write in a professional but friendly tone.`;
       engagementScore: Math.max(0, 100 - daysSinceContact * 2), // Simple score based on recency
       recommendedAction: nextAction || "Schedule follow-up call",
     });
-  } catch (error) {
-    console.error("Error generating insights:", error);
+  } catch (error: any) {
+    console.error("Error generating insights:", error.message, error.stack?.substring(0, 300));
     return NextResponse.json(
-      { error: "Failed to generate insights" },
+      { error: `Failed to generate insights: ${error.message}` },
       { status: 500 }
     );
   }

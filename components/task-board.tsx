@@ -21,6 +21,7 @@ import { cn } from "@/lib/utils"
 interface TaskBoardProps {
   clients: Client[]
   onUpdateClient: (client: Client) => Promise<void>
+  onSelectClient?: (client: Client) => void
 }
 
 interface TaskWithClient {
@@ -93,7 +94,7 @@ function fireConfetti() {
   })
 }
 
-export function TaskBoard({ clients, onUpdateClient }: TaskBoardProps) {
+export function TaskBoard({ clients, onUpdateClient, onSelectClient }: TaskBoardProps) {
   const [newTaskText, setNewTaskText] = useState("")
   const [selectedClientId, setSelectedClientId] = useState<string>("")
   const [showAddForm, setShowAddForm] = useState(false)
@@ -174,11 +175,10 @@ export function TaskBoard({ clients, onUpdateClient }: TaskBoardProps) {
 
     setIsSubmitting(true)
 
-    const client = clients.find((c) => c.id === completedTask.client.id)
-    if (!client) {
-      setIsSubmitting(false)
-      return
-    }
+    // Use completedTask.client which has the updated todos from handleToggleTask
+    // Get the latest activity array from props to avoid overwriting any concurrent updates
+    const latestClient = clients.find((c) => c.id === completedTask.client.id)
+    const latestActivity = latestClient?.activity || completedTask.client.activity || []
 
     const newActivity: ActivityLog = {
       id: Date.now().toString(),
@@ -186,9 +186,10 @@ export function TaskBoard({ clients, onUpdateClient }: TaskBoardProps) {
       date: noteDate,
     }
 
+    // Merge: use completedTask.client (which has updated todos) but add the new activity
     const updatedClient = {
-      ...client,
-      activity: [...(client.activity || []), newActivity],
+      ...completedTask.client,
+      activity: [...latestActivity, newActivity],
     }
 
     await onUpdateClient(updatedClient)
@@ -286,10 +287,13 @@ export function TaskBoard({ clients, onUpdateClient }: TaskBoardProps) {
                 >
                   <Circle className="h-5 w-5" />
                 </button>
-                <div className="flex-1 min-w-0">
+                <button
+                  onClick={() => onSelectClient?.(client)}
+                  className="flex-1 min-w-0 text-left hover:opacity-80 transition-opacity"
+                >
                   <p className="text-foreground">{todo.text}</p>
                   <p className="text-sm text-muted-foreground mt-0.5">{client.name}</p>
-                </div>
+                </button>
               </div>
             ))}
           </div>
@@ -324,10 +328,13 @@ export function TaskBoard({ clients, onUpdateClient }: TaskBoardProps) {
                     >
                       <CheckCircle2 className="h-5 w-5" />
                     </button>
-                    <div className="flex-1 min-w-0">
+                    <button
+                      onClick={() => onSelectClient?.(client)}
+                      className="flex-1 min-w-0 text-left hover:opacity-80 transition-opacity"
+                    >
                       <p className="text-foreground line-through">{todo.text}</p>
                       <p className="text-sm text-muted-foreground mt-0.5">{client.name}</p>
-                    </div>
+                    </button>
                   </div>
                 ))}
               </div>

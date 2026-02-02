@@ -106,18 +106,28 @@ async function fetchGoogleNews(companyName: string, country?: string, prospectTy
     const locale = getLocaleForCountry(country);
     const rssUrl = `https://news.google.com/rss/search?q=${searchQuery}&hl=${locale.hl}&gl=${locale.gl}&ceid=${locale.ceid}`;
 
+    console.log(`Fetching Google News RSS: ${rssUrl}`);
+
     const response = await fetch(rssUrl, {
       headers: {
-        "User-Agent": "Mozilla/5.0 (compatible; ZlatkoCRM/1.0)",
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        "Accept": "application/rss+xml, application/xml, text/xml, */*",
       },
     });
 
     if (!response.ok) {
-      console.error("Google News RSS failed:", response.status);
+      console.error("Google News RSS failed:", response.status, response.statusText);
       return [];
     }
 
     const xml = await response.text();
+    console.log(`RSS response length: ${xml.length} chars`);
+
+    if (xml.length < 100) {
+      console.error("RSS response too short:", xml);
+      return [];
+    }
+
     const articles: NewsArticle[] = [];
 
     // Parse RSS XML
@@ -144,9 +154,10 @@ async function fetchGoogleNews(companyName: string, country?: string, prospectTy
       }
     }
 
+    console.log(`Parsed ${articles.length} articles from RSS`);
     return articles;
-  } catch (error) {
-    console.error("Error fetching Google News:", error);
+  } catch (error: any) {
+    console.error("Error fetching Google News:", error.message);
     return [];
   }
 }
@@ -295,9 +306,9 @@ For each piece of news found, return JSON with this structure:
 
 Only include items with relevanceScore >= 50. If no relevant news found, return {"items": []}`;
 
-    // Try with googleSearch (requires paid plan for grounding)
+    // Try with googleSearch tool for grounding
     const model = genAI.getGenerativeModel({
-      model: "gemini-1.5-flash",
+      model: "gemini-3.0-flash",
       tools: [{ googleSearch: {} }],
     } as any);
 
@@ -305,7 +316,7 @@ Only include items with relevanceScore >= 50. If no relevant news found, return 
     const response = await result.response;
     let text = response.text();
 
-    console.log("Gemini grounding response:", text.substring(0, 300));
+    console.log("Gemini grounding response:", text.substring(0, 500));
 
     // Parse JSON
     text = text.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
@@ -318,6 +329,7 @@ Only include items with relevanceScore >= 50. If no relevant news found, return 
     const items = data.items || [];
 
     if (items.length === 0) {
+      console.log("Gemini grounding returned empty items array");
       return null; // Trigger fallback
     }
 
@@ -349,7 +361,7 @@ Only include items with relevanceScore >= 50. If no relevant news found, return 
       matchLeague: item.league,
     }));
   } catch (error: any) {
-    console.log("Gemini grounding not available:", error.message);
+    console.error("Gemini grounding error:", error.message, error.stack?.substring(0, 200));
     return null; // Trigger fallback
   }
 }
@@ -374,7 +386,7 @@ async function fetchWithRSSFallback(
   console.log(`Found ${articles.length} articles for ${companyName}, analyzing with Gemini...`);
 
   // Use Gemini to analyze and structure the news
-  const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+  const model = genAI.getGenerativeModel({ model: "gemini-3.0-flash" });
 
   const articlesContext = articles.map((a, i) =>
     `${i + 1}. "${a.title}" - ${a.source} (${a.pubDate})\n   ${a.snippet}\n   URL: ${a.link}`
@@ -487,7 +499,94 @@ Only include articles with relevanceScore >= 50. If none are relevant, return {"
 }
 
 /**
- * Main function: Try grounding first, fallback to RSS
+ * Final fallback: Ask Gemini for known information about the company
+ */
+async function fetchWithGeminiKnowledge(
+  companyName: string,
+  website?: string,
+  prospectType?: string,
+  country?: string
+): Promise<IntelligenceResult[]> {
+  try {
+    console.log(`Using Gemini knowledge fallback for: ${companyName}`);
+
+    const model = genAI.getGenerativeModel({ model: "gemini-3.0-flash" });
+
+    const searchContext = [
+      `Company: ${companyName}`,
+      website ? `Website: ${website}` : null,
+      prospectType ? `Type: ${prospectType}` : null,
+      country ? `Country: ${country}` : null,
+    ].filter(Boolean).join("\n");
+
+    const prompt = `Based on your knowledge, provide information about this company for B2B sales purposes:
+
+${searchContext}
+
+Provide 1-3 pieces of relevant information such as:
+- Company overview and what they do
+- Recent developments you know about (leadership, products, expansion)
+- Industry position and competitors
+- Any notable facts useful for sales outreach
+
+Return JSON:
+{
+  "items": [
+    {
+      "title": "Headline about the company",
+      "summary": "2-3 sentence description",
+      "intelligenceType": "company_update",
+      "aiTip": "Actionable sales tip",
+      "keyFact": "Key fact",
+      "relevanceScore": 65
+    }
+  ]
+}
+
+If you don't have reliable information about this company, return {"items": []}`;
+
+    const result = await model.generateContent(prompt);
+    const response = await result.response;
+    let text = response.text();
+
+    text = text.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
+    const jsonMatch = text.match(/\{[\s\S]*\}/);
+    if (jsonMatch) {
+      text = jsonMatch[0];
+    }
+
+    const data = JSON.parse(text);
+    const items = data.items || [];
+
+    const typeToSource: Record<string, IntelligenceSourceType> = {
+      news: "news",
+      company_update: "other",
+      job_change: "job-change",
+      funding: "funding",
+    };
+
+    return items.map((item: any) => ({
+      id: `intel-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      title: item.title || "Company Information",
+      description: item.summary,
+      sourceType: typeToSource[item.intelligenceType] || "other",
+      intelligenceType: item.intelligenceType || "company_update",
+      url: website,
+      publishedAt: new Date().toISOString(),
+      aiTip: item.aiTip,
+      relevanceScore: item.relevanceScore || 60,
+      companyName,
+      sourceName: "AI Knowledge Base",
+      contentQuote: item.keyFact,
+    }));
+  } catch (error: any) {
+    console.error("Gemini knowledge fallback error:", error.message);
+    return [];
+  }
+}
+
+/**
+ * Main function: Try grounding first, fallback to RSS, then Gemini knowledge
  */
 async function fetchIntelligenceWithGemini(
   companyName: string,
@@ -506,7 +605,16 @@ async function fetchIntelligenceWithGemini(
 
   // Fallback to RSS + Gemini analysis
   console.log(`Falling back to RSS for: ${companyName}`);
-  return fetchWithRSSFallback(companyName, website, prospectType, country);
+  const rssResults = await fetchWithRSSFallback(companyName, website, prospectType, country);
+
+  if (rssResults && rssResults.length > 0) {
+    console.log(`RSS fallback returned ${rssResults.length} items`);
+    return rssResults;
+  }
+
+  // Final fallback: Use Gemini's knowledge base
+  console.log(`Falling back to Gemini knowledge for: ${companyName}`);
+  return fetchWithGeminiKnowledge(companyName, website, prospectType, country);
 }
 
 export async function POST(request: NextRequest) {
