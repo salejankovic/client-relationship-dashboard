@@ -6,18 +6,21 @@ import { ClientList } from "@/components/client-list"
 import { ClientProfile } from "@/components/client-profile"
 import { AddClientModal } from "@/components/add-client-modal"
 import { ProductManagerModal } from "@/components/product-manager-modal"
+import { TaskBoard } from "@/components/task-board"
 import type { Client, Product } from "@/lib/types"
 import { Button } from "@/components/ui/button"
-import { Plus, Settings, Loader2 } from "lucide-react"
+import { Plus, Settings, Loader2, ListTodo, Users } from "lucide-react"
 import { useClients } from "@/hooks/use-clients"
 import { useProducts } from "@/hooks/use-products"
 import { useTeamMembers } from "@/hooks/use-team-members"
+import { cn } from "@/lib/utils"
 
 export default function ClientDashboard() {
   const [selectedClient, setSelectedClient] = useState<Client | null>(null)
   const [selectedProducts, setSelectedProducts] = useState<Product[]>([])
   const [isAddClientOpen, setIsAddClientOpen] = useState(false)
   const [isProductManagerOpen, setIsProductManagerOpen] = useState(false)
+  const [activeView, setActiveView] = useState<"clients" | "tasks">("clients")
 
   // Fetch data from Supabase
   const { clients, loading: clientsLoading, addClient, updateClient, deleteClient } = useClients()
@@ -55,7 +58,35 @@ export default function ClientDashboard() {
     <div className="flex flex-col h-screen bg-background">
       <MainNav />
       <div className="flex items-center justify-between border-b border-border bg-card px-6 py-3 mt-16">
-        <h2 className="text-lg font-semibold text-foreground">Client Management</h2>
+        <div className="flex items-center gap-4">
+          {/* View Toggle Tabs */}
+          <div className="flex items-center bg-muted rounded-lg p-1">
+            <button
+              onClick={() => setActiveView("clients")}
+              className={cn(
+                "flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium transition-colors",
+                activeView === "clients"
+                  ? "bg-background text-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground"
+              )}
+            >
+              <Users className="h-4 w-4" />
+              Client Management
+            </button>
+            <button
+              onClick={() => setActiveView("tasks")}
+              className={cn(
+                "flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium transition-colors",
+                activeView === "tasks"
+                  ? "bg-background text-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground"
+              )}
+            >
+              <ListTodo className="h-4 w-4" />
+              Task Board
+            </button>
+          </div>
+        </div>
         <div className="flex items-center gap-2">
           <Button variant="outline" size="sm" onClick={() => (window.location.href = "/settings")}>
             <Settings className="h-4 w-4 mr-2" />
@@ -76,6 +107,32 @@ export default function ClientDashboard() {
         <div className="flex flex-1 items-center justify-center">
           <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
           <span className="ml-3 text-muted-foreground">Loading data from Supabase...</span>
+        </div>
+      ) : activeView === "tasks" ? (
+        <div className="flex flex-1 overflow-hidden">
+          <div className="w-96 border-r border-border">
+            <TaskBoard clients={clients} onUpdateClient={handleClientUpdate} />
+          </div>
+          <main className="flex-1 overflow-auto">
+            {selectedClient ? (
+              <ClientProfile
+                client={selectedClient}
+                onUpdate={handleClientUpdate}
+                onDelete={handleDeleteClient}
+                teamMembers={teamMembers}
+                availableProducts={products}
+                productConfigs={productConfigs}
+              />
+            ) : (
+              <div className="flex h-full items-center justify-center">
+                <div className="text-center">
+                  <ListTodo className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                  <h2 className="text-2xl font-semibold text-foreground">Task Board</h2>
+                  <p className="mt-2 text-muted-foreground">Complete tasks and manage your to-dos across all clients</p>
+                </div>
+              </div>
+            )}
+          </main>
         </div>
       ) : (
         <div className="flex flex-1 overflow-hidden">
