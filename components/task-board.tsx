@@ -100,6 +100,7 @@ export function TaskBoard({ clients, onUpdateClient }: TaskBoardProps) {
   const [completedTask, setCompletedTask] = useState<TaskWithClient | null>(null)
   const [showNoteDialog, setShowNoteDialog] = useState(false)
   const [noteText, setNoteText] = useState("")
+  const [noteDate, setNoteDate] = useState(new Date().toISOString().split("T")[0])
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [showCompleted, setShowCompleted] = useState(false)
 
@@ -167,6 +168,7 @@ export function TaskBoard({ clients, onUpdateClient }: TaskBoardProps) {
       setShowNoteDialog(false)
       setCompletedTask(null)
       setNoteText("")
+      setNoteDate(new Date().toISOString().split("T")[0])
       return
     }
 
@@ -181,7 +183,7 @@ export function TaskBoard({ clients, onUpdateClient }: TaskBoardProps) {
     const newActivity: ActivityLog = {
       id: Date.now().toString(),
       comment: noteText.trim(),
-      date: new Date().toISOString().split("T")[0],
+      date: noteDate,
     }
 
     const updatedClient = {
@@ -195,12 +197,14 @@ export function TaskBoard({ clients, onUpdateClient }: TaskBoardProps) {
     setShowNoteDialog(false)
     setCompletedTask(null)
     setNoteText("")
+    setNoteDate(new Date().toISOString().split("T")[0])
   }
 
   const handleSkipNote = () => {
     setShowNoteDialog(false)
     setCompletedTask(null)
     setNoteText("")
+    setNoteDate(new Date().toISOString().split("T")[0])
   }
 
   return (
@@ -341,16 +345,25 @@ export function TaskBoard({ clients, onUpdateClient }: TaskBoardProps) {
               Would you like to add a note to {completedTask?.client.name}'s activity log?
             </DialogDescription>
           </DialogHeader>
-          <div className="py-4">
-            <p className="text-sm text-muted-foreground mb-2">
+          <div className="py-4 space-y-4">
+            <p className="text-sm text-muted-foreground">
               Completed: <span className="text-foreground">{completedTask?.todo.text}</span>
             </p>
-            <Textarea
-              placeholder="Add a note about what was done... (optional)"
-              value={noteText}
-              onChange={(e) => setNoteText(e.target.value)}
-              rows={3}
-            />
+            <div className="flex gap-2">
+              <Textarea
+                placeholder="Add a note about what was done... (optional)"
+                value={noteText}
+                onChange={(e) => setNoteText(e.target.value)}
+                rows={3}
+                className="flex-1"
+              />
+              <Input
+                type="date"
+                value={noteDate}
+                onChange={(e) => setNoteDate(e.target.value)}
+                className="w-36"
+              />
+            </div>
           </div>
           <DialogFooter>
             <Button variant="ghost" onClick={handleSkipNote}>
