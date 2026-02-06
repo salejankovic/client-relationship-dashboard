@@ -1,22 +1,14 @@
 "use client"
 
 import { useState, useRef, useEffect } from "react"
-import confetti from "canvas-confetti"
 import { CheckCircle2, Circle, Plus, ListTodo, ChevronDown, ChevronUp } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog"
-import { Textarea } from "@/components/ui/textarea"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import type { Client, TodoItem, ActivityLog } from "@/lib/types"
 import { cn } from "@/lib/utils"
+import { playCompletionSound, fireConfetti } from "@/lib/celebrations"
 
 interface TaskBoardProps {
   clients: Client[]
@@ -29,80 +21,10 @@ interface TaskWithClient {
   client: Client
 }
 
-// Completion sound using Web Audio API
-function playCompletionSound() {
-  try {
-    const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)()
-
-    // Create a pleasant "ding" sound
-    const oscillator = audioContext.createOscillator()
-    const gainNode = audioContext.createGain()
-
-    oscillator.connect(gainNode)
-    gainNode.connect(audioContext.destination)
-
-    oscillator.frequency.setValueAtTime(880, audioContext.currentTime) // A5 note
-    oscillator.frequency.setValueAtTime(1108.73, audioContext.currentTime + 0.1) // C#6 note
-
-    gainNode.gain.setValueAtTime(0.3, audioContext.currentTime)
-    gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.5)
-
-    oscillator.start(audioContext.currentTime)
-    oscillator.stop(audioContext.currentTime + 0.5)
-  } catch (error) {
-    console.log("Audio not supported")
-  }
-}
-
-// Fire confetti animation
-function fireConfetti() {
-  const count = 200
-  const defaults = {
-    origin: { y: 0.7 },
-    zIndex: 9999,
-  }
-
-  function fire(particleRatio: number, opts: confetti.Options) {
-    confetti({
-      ...defaults,
-      ...opts,
-      particleCount: Math.floor(count * particleRatio),
-    })
-  }
-
-  fire(0.25, {
-    spread: 26,
-    startVelocity: 55,
-  })
-  fire(0.2, {
-    spread: 60,
-  })
-  fire(0.35, {
-    spread: 100,
-    decay: 0.91,
-    scalar: 0.8,
-  })
-  fire(0.1, {
-    spread: 120,
-    startVelocity: 25,
-    decay: 0.92,
-    scalar: 1.2,
-  })
-  fire(0.1, {
-    spread: 120,
-    startVelocity: 45,
-  })
-}
-
 export function TaskBoard({ clients, onUpdateClient, onSelectClient }: TaskBoardProps) {
   const [newTaskText, setNewTaskText] = useState("")
   const [selectedClientId, setSelectedClientId] = useState<string>("")
   const [showAddForm, setShowAddForm] = useState(false)
-  const [completedTask, setCompletedTask] = useState<TaskWithClient | null>(null)
-  const [showNoteDialog, setShowNoteDialog] = useState(false)
-  const [noteText, setNoteText] = useState("")
-  const [noteDate, setNoteDate] = useState(new Date().toISOString().split("T")[0])
-  const [isSubmitting, setIsSubmitting] = useState(false)
   const [showCompleted, setShowCompleted] = useState(false)
 
   // Get all tasks with their client info
@@ -131,13 +53,8 @@ export function TaskBoard({ clients, onUpdateClient, onSelectClient }: TaskBoard
 
     // If task was just completed (not uncompleted)
     if (!wasCompleted) {
-      // Play sound and show confetti
       playCompletionSound()
       fireConfetti()
-
-      // Set the completed task and show note dialog
-      setCompletedTask({ todo: { ...todo, completed: true }, client: updatedClient })
-      setShowNoteDialog(true)
     }
   }
 
@@ -162,50 +79,6 @@ export function TaskBoard({ clients, onUpdateClient, onSelectClient }: TaskBoard
     setNewTaskText("")
     setSelectedClientId("")
     setShowAddForm(false)
-  }
-
-  const handleAddNote = async () => {
-    if (!completedTask || !noteText.trim()) {
-      setShowNoteDialog(false)
-      setCompletedTask(null)
-      setNoteText("")
-      setNoteDate(new Date().toISOString().split("T")[0])
-      return
-    }
-
-    setIsSubmitting(true)
-
-    // Use completedTask.client which has the updated todos from handleToggleTask
-    // Get the latest activity array from props to avoid overwriting any concurrent updates
-    const latestClient = clients.find((c) => c.id === completedTask.client.id)
-    const latestActivity = latestClient?.activity || completedTask.client.activity || []
-
-    const newActivity: ActivityLog = {
-      id: Date.now().toString(),
-      comment: noteText.trim(),
-      date: noteDate,
-    }
-
-    // Merge: use completedTask.client (which has updated todos) but add the new activity
-    const updatedClient = {
-      ...completedTask.client,
-      activity: [...latestActivity, newActivity],
-    }
-
-    await onUpdateClient(updatedClient)
-
-    setIsSubmitting(false)
-    setShowNoteDialog(false)
-    setCompletedTask(null)
-    setNoteText("")
-    setNoteDate(new Date().toISOString().split("T")[0])
-  }
-
-  const handleSkipNote = () => {
-    setShowNoteDialog(false)
-    setCompletedTask(null)
-    setNoteText("")
-    setNoteDate(new Date().toISOString().split("T")[0])
   }
 
   return (
@@ -292,7 +165,16 @@ export function TaskBoard({ clients, onUpdateClient, onSelectClient }: TaskBoard
                   className="flex-1 min-w-0 text-left hover:opacity-80 transition-opacity"
                 >
                   <p className="text-foreground">{todo.text}</p>
-                  <p className="text-sm text-muted-foreground mt-0.5">{client.name}</p>
+                  <div className="flex items-center gap-1.5 mt-0.5">
+                    {client.logoUrl ? (
+                      <img src={client.logoUrl} alt="" className="h-4 w-4 rounded-sm object-cover" />
+                    ) : (
+                      <div className="h-4 w-4 rounded-sm bg-primary text-primary-foreground flex items-center justify-center text-[8px] font-bold">
+                        {client.name.substring(0, 2).toUpperCase()}
+                      </div>
+                    )}
+                    <p className="text-sm text-muted-foreground">{client.name}</p>
+                  </div>
                 </button>
               </div>
             ))}
@@ -333,7 +215,16 @@ export function TaskBoard({ clients, onUpdateClient, onSelectClient }: TaskBoard
                       className="flex-1 min-w-0 text-left hover:opacity-80 transition-opacity"
                     >
                       <p className="text-foreground line-through">{todo.text}</p>
-                      <p className="text-sm text-muted-foreground mt-0.5">{client.name}</p>
+                      <div className="flex items-center gap-1.5 mt-0.5">
+                        {client.logoUrl ? (
+                          <img src={client.logoUrl} alt="" className="h-4 w-4 rounded-sm object-cover" />
+                        ) : (
+                          <div className="h-4 w-4 rounded-sm bg-primary text-primary-foreground flex items-center justify-center text-[8px] font-bold">
+                            {client.name.substring(0, 2).toUpperCase()}
+                          </div>
+                        )}
+                        <p className="text-sm text-muted-foreground">{client.name}</p>
+                      </div>
                     </button>
                   </div>
                 ))}
@@ -343,45 +234,6 @@ export function TaskBoard({ clients, onUpdateClient, onSelectClient }: TaskBoard
         )}
       </div>
 
-      {/* Add Note Dialog */}
-      <Dialog open={showNoteDialog} onOpenChange={setShowNoteDialog}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Task Completed!</DialogTitle>
-            <DialogDescription>
-              Would you like to add a note to {completedTask?.client.name}'s activity log?
-            </DialogDescription>
-          </DialogHeader>
-          <div className="py-4 space-y-4">
-            <p className="text-sm text-muted-foreground">
-              Completed: <span className="text-foreground">{completedTask?.todo.text}</span>
-            </p>
-            <div className="flex gap-2">
-              <Textarea
-                placeholder="Add a note about what was done... (optional)"
-                value={noteText}
-                onChange={(e) => setNoteText(e.target.value)}
-                rows={3}
-                className="flex-1"
-              />
-              <Input
-                type="date"
-                value={noteDate}
-                onChange={(e) => setNoteDate(e.target.value)}
-                className="w-36"
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="ghost" onClick={handleSkipNote}>
-              Skip
-            </Button>
-            <Button onClick={handleAddNote} disabled={isSubmitting}>
-              {noteText.trim() ? "Add Note" : "Skip"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   )
 }

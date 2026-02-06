@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { ExternalLink, Plus, Check, User, Trash2, Pencil, X, MapPin } from "lucide-react"
+import { playCompletionSound, fireConfetti } from "@/lib/celebrations"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
@@ -49,6 +50,8 @@ export function ClientProfile({ client, onUpdate, onDelete, teamMembers, availab
   const [editingContact, setEditingContact] = useState<string | null>(null)
   const [editContact, setEditContact] = useState({ name: "", email: "", role: "" })
   const [newTodo, setNewTodo] = useState("")
+  const [editingTodo, setEditingTodo] = useState<string | null>(null)
+  const [editTodoText, setEditTodoText] = useState("")
   const [newComment, setNewComment] = useState("")
   const [newCommentDate, setNewCommentDate] = useState(new Date().toISOString().split("T")[0])
   const [editingActivity, setEditingActivity] = useState<string | null>(null)
@@ -117,8 +120,37 @@ export function ClientProfile({ client, onUpdate, onDelete, teamMembers, availab
   }
 
   const toggleTodo = (id: string) => {
+    const todo = client.todos.find((t) => t.id === id)
+    const wasCompleted = todo?.completed
     const todos = client.todos.map((t) => (t.id === id ? { ...t, completed: !t.completed } : t))
     onUpdate({ ...client, todos })
+    if (todo && !wasCompleted) {
+      playCompletionSound()
+      fireConfetti()
+    }
+  }
+
+  const deleteTodo = (id: string) => {
+    const todos = client.todos.filter((t) => t.id !== id)
+    onUpdate({ ...client, todos })
+  }
+
+  const startEditTodo = (todo: { id: string; text: string }) => {
+    setEditingTodo(todo.id)
+    setEditTodoText(todo.text)
+  }
+
+  const saveEditTodo = (id: string) => {
+    if (!editTodoText.trim()) return
+    const todos = client.todos.map((t) => (t.id === id ? { ...t, text: editTodoText.trim() } : t))
+    onUpdate({ ...client, todos })
+    setEditingTodo(null)
+    setEditTodoText("")
+  }
+
+  const cancelEditTodo = () => {
+    setEditingTodo(null)
+    setEditTodoText("")
   }
 
   const addComment = () => {
@@ -394,24 +426,65 @@ export function ClientProfile({ client, onUpdate, onDelete, teamMembers, availab
               <label className="text-sm font-medium text-foreground mb-2 block">To-Do</label>
               <div className="space-y-2 mb-3">
                 {client.todos.map((todo) => (
-                  <div key={todo.id} className="flex items-center gap-2">
-                    <button
-                      onClick={() => toggleTodo(todo.id)}
-                      className={cn(
-                        "h-5 w-5 rounded border flex items-center justify-center",
-                        todo.completed ? "bg-primary border-primary" : "border-border bg-background",
-                      )}
-                    >
-                      {todo.completed && <Check className="h-3 w-3 text-primary-foreground" />}
-                    </button>
-                    <span
-                      className={cn(
-                        "text-sm flex-1",
-                        todo.completed ? "line-through text-muted-foreground" : "text-foreground",
-                      )}
-                    >
-                      {todo.text}
-                    </span>
+                  <div key={todo.id} className="flex items-center gap-2 group">
+                    {editingTodo === todo.id ? (
+                      <div className="flex items-center gap-2 flex-1">
+                        <Input
+                          value={editTodoText}
+                          onChange={(e) => setEditTodoText(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") saveEditTodo(todo.id)
+                            if (e.key === "Escape") cancelEditTodo()
+                          }}
+                          className="bg-background border-border h-8 text-sm"
+                          autoFocus
+                        />
+                        <Button onClick={() => saveEditTodo(todo.id)} size="sm" variant="ghost" className="h-8 w-8 p-0">
+                          <Check className="h-3.5 w-3.5" />
+                        </Button>
+                        <Button onClick={cancelEditTodo} size="sm" variant="ghost" className="h-8 w-8 p-0">
+                          <X className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
+                    ) : (
+                      <>
+                        <button
+                          onClick={() => toggleTodo(todo.id)}
+                          className={cn(
+                            "h-5 w-5 rounded border flex items-center justify-center flex-shrink-0",
+                            todo.completed ? "bg-primary border-primary" : "border-border bg-background",
+                          )}
+                        >
+                          {todo.completed && <Check className="h-3 w-3 text-primary-foreground" />}
+                        </button>
+                        <span
+                          className={cn(
+                            "text-sm flex-1",
+                            todo.completed ? "line-through text-muted-foreground" : "text-foreground",
+                          )}
+                        >
+                          {todo.text}
+                        </span>
+                        <div className="flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <Button
+                            onClick={() => startEditTodo(todo)}
+                            size="sm"
+                            variant="ghost"
+                            className="h-6 w-6 p-0"
+                          >
+                            <Pencil className="h-3 w-3" />
+                          </Button>
+                          <Button
+                            onClick={() => deleteTodo(todo.id)}
+                            size="sm"
+                            variant="ghost"
+                            className="h-6 w-6 p-0 text-destructive hover:text-destructive"
+                          >
+                            <Trash2 className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      </>
+                    )}
                   </div>
                 ))}
               </div>

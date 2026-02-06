@@ -29,6 +29,7 @@ import {
 import { useProspects } from "@/hooks/use-prospects";
 import { useCountries } from "@/hooks/use-countries";
 import type { Prospect } from "@/lib/types";
+import { playCompletionSound, fireConfetti } from "@/lib/celebrations";
 import {
   Search,
   Plus,
@@ -36,6 +37,7 @@ import {
   Eye,
   Sparkles,
   CheckCircle2,
+  Circle,
   ThermometerSun,
   Snowflake,
   Pause,
@@ -101,7 +103,7 @@ function DaysIndicator({ days }: { days?: number }) {
 }
 
 function ProspectsContent() {
-  const { prospects: allProspects, loading, deleteProspect } = useProspects();
+  const { prospects: allProspects, loading, deleteProspect, updateProspect } = useProspects();
   const { countries } = useCountries();
   const [search, setSearch] = useState("");
   const [productFilter, setProductFilter] = useState<string>("all");
@@ -282,6 +284,19 @@ function ProspectsContent() {
       setSortColumn(column);
       setSortDirection('desc');
     }
+  };
+
+  const handleCompleteNextAction = async (prospect: Prospect, e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    await updateProspect({
+      ...prospect,
+      nextAction: undefined,
+      nextActionDate: undefined,
+      lastContactDate: new Date().toISOString().split("T")[0],
+    });
+    playCompletionSound();
+    fireConfetti();
   };
 
   const SortIcon = ({ column }: { column: SortColumn }) => {
@@ -575,28 +590,37 @@ function ProspectsContent() {
                       </TableCell>
                       <TableCell className="max-w-[200px]">
                         {prospect.nextAction ? (
-                          <Link
-                            href={`/acquisition/prospects/${prospect.id}`}
-                            className="block hover:bg-muted/50 transition-colors rounded p-1 -m-1"
-                          >
-                            <div className="text-sm font-medium text-foreground whitespace-normal break-words">
-                              {prospect.nextAction}
-                            </div>
-                            {prospect.nextActionDate && (
-                              <div className="text-xs text-muted-foreground">
-                                {(() => {
-                                  const d = new Date(prospect.nextActionDate);
-                                  return `${d.getDate()}/${d.getMonth() + 1}/${d.getFullYear()}`;
-                                })()}
+                          <div className="flex items-start gap-2">
+                            <button
+                              onClick={(e) => handleCompleteNextAction(prospect, e)}
+                              className="mt-0.5 flex-shrink-0 text-muted-foreground hover:text-primary transition-colors"
+                              title="Mark as done"
+                            >
+                              <Circle className="h-4 w-4" />
+                            </button>
+                            <Link
+                              href={`/acquisition/prospects/${prospect.id}`}
+                              className="flex-1 hover:opacity-80 transition-opacity"
+                            >
+                              <div className="text-sm font-medium text-foreground whitespace-normal break-words">
+                                {prospect.nextAction}
                               </div>
-                            )}
-                          </Link>
+                              {prospect.nextActionDate && (
+                                <div className="text-xs text-muted-foreground">
+                                  {(() => {
+                                    const d = new Date(prospect.nextActionDate);
+                                    return `${d.getDate()}/${d.getMonth() + 1}/${d.getFullYear()}`;
+                                  })()}
+                                </div>
+                              )}
+                            </Link>
+                          </div>
                         ) : (
                           <Link
                             href={`/acquisition/prospects/${prospect.id}`}
                             className="text-sm text-muted-foreground hover:text-blue-600"
                           >
-                            -
+                            /
                           </Link>
                         )}
                       </TableCell>
