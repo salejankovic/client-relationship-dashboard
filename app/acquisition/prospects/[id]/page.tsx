@@ -131,6 +131,7 @@ export default function ProspectDetailPage() {
           website: prospect.website,
           prospectType: prospect.prospectType,
           country: prospect.country,
+          linkedinUrl: prospect.linkedinUrl,
           contactName: primaryContact?.name,
           saveToDB: true,
         }),

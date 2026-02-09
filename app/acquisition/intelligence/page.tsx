@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { MainNav } from "@/components/main-nav"
 import { AppSidebar } from "@/components/app-sidebar"
 import { MobileNav } from "@/components/mobile-nav"
-import { IntelligenceCard, FollowupEmailDialog } from "@/components/intelligence"
+import { IntelligenceCard, FollowupEmailDialog, RefreshProgressDialog } from "@/components/intelligence"
 import { Loader2, Search, RefreshCw, Briefcase, Newspaper, Trophy, Building2, Sparkles } from "lucide-react"
 import type { IntelligenceSourceType, IntelligenceItem } from "@/lib/types"
 
@@ -23,6 +23,7 @@ export default function IntelligencePage() {
   const [prospectFilter, setProspectFilter] = useState<string>("all")
   const [showDismissed, setShowDismissed] = useState(false)
   const [isRefreshing, setIsRefreshing] = useState(false)
+  const [refreshDialogOpen, setRefreshDialogOpen] = useState(false)
   const [followupDialogOpen, setFollowupDialogOpen] = useState(false)
   const [selectedIntelligence, setSelectedIntelligence] = useState<IntelligenceItem | null>(null)
   const [selectedProspect, setSelectedProspect] = useState<typeof prospects[0] | undefined>(undefined)
@@ -133,10 +134,12 @@ export default function IntelligencePage() {
     return groups
   }, [filteredItems])
 
-  const handleRefresh = async () => {
-    setIsRefreshing(true)
-    await refetch()
-    setIsRefreshing(false)
+  const handleRefresh = () => {
+    setRefreshDialogOpen(true)
+  }
+
+  const handleRefreshComplete = () => {
+    refetch()
   }
 
   const handleUseInFollowUp = (item: IntelligenceItem) => {
@@ -193,9 +196,8 @@ export default function IntelligencePage() {
             <Button
               variant="outline"
               onClick={handleRefresh}
-              disabled={isRefreshing}
             >
-              <RefreshCw className={`h-4 w-4 mr-2 ${isRefreshing ? 'animate-spin' : ''}`} />
+              <RefreshCw className="h-4 w-4 mr-2" />
               Refresh Now
             </Button>
           </div>
@@ -322,6 +324,14 @@ export default function IntelligencePage() {
           )}
         </div>
       </main>
+
+      {/* Refresh Progress Dialog */}
+      <RefreshProgressDialog
+        open={refreshDialogOpen}
+        onOpenChange={setRefreshDialogOpen}
+        prospects={prospects}
+        onComplete={handleRefreshComplete}
+      />
 
       {/* Follow-up Email Dialog */}
       {selectedIntelligence && (
