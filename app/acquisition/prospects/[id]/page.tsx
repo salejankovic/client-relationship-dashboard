@@ -504,40 +504,34 @@ export default function ProspectDetailPage() {
                 })()}
               </div>
             )}
-          </CardContent>
-        </Card>
-        {/* Owner & Label */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">Owner & Label</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div>
-              <label className="text-sm font-medium block mb-2">Owner</label>
-              <Select
-                value={prospect.owner || ""}
-                onValueChange={(value: string) => setProspect({ ...prospect, owner: value })}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select owner" />
-                </SelectTrigger>
-                <SelectContent>
-                  {teamMembers.map((member) => (
-                    <SelectItem key={member} value={member}>
-                      {member}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <label className="text-sm font-medium block mb-2">Custom Label</label>
-              <Input
-                type="text"
-                value={prospect.customLabel || ""}
-                onChange={(e) => setProspect({ ...prospect, customLabel: e.target.value || undefined })}
-                placeholder="e.g., Athens trip March 2026"
-              />
+            <div className="space-y-4 mt-4 pt-4 border-t">
+              <div>
+                <label className="text-sm font-medium block mb-2">Owner</label>
+                <Select
+                  value={prospect.owner || ""}
+                  onValueChange={(value: string) => setProspect({ ...prospect, owner: value })}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select owner" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {teamMembers.map((member) => (
+                      <SelectItem key={member} value={member}>
+                        {member}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <label className="text-sm font-medium block mb-2">Custom Label</label>
+                <Input
+                  type="text"
+                  value={prospect.customLabel || ""}
+                  onChange={(e) => setProspect({ ...prospect, customLabel: e.target.value || undefined })}
+                  placeholder="e.g., Athens trip March 2026"
+                />
+              </div>
             </div>
           </CardContent>
         </Card>

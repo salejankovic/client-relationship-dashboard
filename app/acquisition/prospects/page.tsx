@@ -52,7 +52,7 @@ import {
 } from "lucide-react";
 
 type HealthStatus = "Active" | "Cooling" | "Cold" | "Frozen";
-type SortColumn = "dealValue" | "lastContact" | "status" | "nextAction" | null;
+type SortColumn = "dealValue" | "lastContact" | "status" | "nextAction" | "company" | null;
 type SortDirection = "asc" | "desc";
 type ViewMode = "table" | "grid";
 
@@ -107,9 +107,12 @@ function DaysIndicator({ days }: { days?: number }) {
 
 function getComputedDaysSinceContact(prospect: Prospect): number {
   if (prospect.lastContactDate) {
-    const last = new Date(prospect.lastContactDate + "T00:00:00");
-    const days = Math.max(0, Math.floor((Date.now() - last.getTime()) / (1000 * 60 * 60 * 24)));
-    return days;
+    const last = new Date(prospect.lastContactDate);
+    if (isNaN(last.getTime())) return prospect.daysSinceContact ?? 0;
+    const lastMidnight = Date.UTC(last.getUTCFullYear(), last.getUTCMonth(), last.getUTCDate());
+    const now = new Date();
+    const nowMidnight = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
+    return Math.max(0, Math.floor((nowMidnight - lastMidnight) / (1000 * 60 * 60 * 24)));
   }
   return prospect.daysSinceContact ?? 0;
 }
@@ -222,9 +225,12 @@ function ProspectsContent() {
           } else if (sortColumn === 'status') {
             comparison = getStatusPriority(a.status) - getStatusPriority(b.status);
           } else if (sortColumn === 'nextAction') {
-            const nA = (a.nextAction || '').toLowerCase();
-            const nB = (b.nextAction || '').toLowerCase();
-            comparison = nA.localeCompare(nB);
+            // Sort by next action date (no date = sort last)
+            const dA = a.nextActionDate ? new Date(a.nextActionDate).getTime() : Infinity;
+            const dB = b.nextActionDate ? new Date(b.nextActionDate).getTime() : Infinity;
+            comparison = dA - dB;
+          } else if (sortColumn === 'company') {
+            comparison = a.company.toLowerCase().localeCompare(b.company.toLowerCase());
           }
 
           return sortDirection === 'asc' ? comparison : -comparison;
@@ -558,14 +564,27 @@ function ProspectsContent() {
                       {prospect.productType && <ProductBadge product={prospect.productType} />}
                       <span className="text-muted-foreground">{prospect.dealValue || ""}</span>
                     </div>
-                    <div className="flex items-center justify-between mt-2 text-xs text-muted-foreground">
+                    <div className="flex items-center gap-1 mt-1 text-xs text-muted-foreground">
                       <DaysIndicator days={days} />
-                      {prospect.nextAction && (
-                        <span className="truncate max-w-[120px] ml-2" title={prospect.nextAction}>
-                          → {prospect.nextAction}
-                        </span>
-                      )}
                     </div>
+                    {prospect.nextAction && (
+                      <div className="mt-2 pt-2 border-t">
+                        <div className="flex items-start gap-1.5">
+                          <Circle className="h-3.5 w-3.5 flex-shrink-0 text-muted-foreground mt-0.5" />
+                          <div className="min-w-0">
+                            <p className="text-sm font-medium text-foreground leading-tight">{prospect.nextAction}</p>
+                            {prospect.nextActionDate && (
+                              <p className="text-xs text-muted-foreground mt-0.5">
+                                {(() => {
+                                  const d = new Date(prospect.nextActionDate);
+                                  return `${d.getDate()}/${d.getMonth() + 1}/${d.getFullYear()}`;
+                                })()}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    )}
                   </Link>
                 );
               })}
@@ -586,7 +605,15 @@ function ProspectsContent() {
                       onCheckedChange={handleSelectAll}
                     />
                   </TableHead>
-                  <TableHead>Company</TableHead>
+                  <TableHead>
+                    <button
+                      onClick={() => handleSort('company')}
+                      className="flex items-center hover:text-foreground transition-colors"
+                    >
+                      Company
+                      <SortIcon column="company" />
+                    </button>
+                  </TableHead>
                   <TableHead>Contact</TableHead>
                   <TableHead>Product</TableHead>
                   <TableHead>
