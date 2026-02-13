@@ -316,7 +316,6 @@ function ProspectsContent() {
       ...prospect,
       nextAction: undefined,
       nextActionDate: undefined,
-      lastContactDate: new Date().toISOString().split("T")[0],
     });
     playCompletionSound();
     fireConfetti();
@@ -525,6 +524,41 @@ function ProspectsContent() {
                 <AlertTriangle className="w-3 h-3 mr-1.5" />
                 Select all needing follow-up ({needsFollowUp.length})
               </Button>
+            </div>
+          )}
+
+          {/* Sort toolbar for grid view */}
+          {viewMode === "grid" && (
+            <div className="flex items-center gap-2 mb-4">
+              <span className="text-sm text-muted-foreground">Sort by:</span>
+              {(["company", "status", "lastContact", "nextAction", "dealValue"] as SortColumn[]).map((col) => {
+                const labels: Record<string, string> = {
+                  company: "Name",
+                  status: "Status",
+                  lastContact: "Last Contact",
+                  nextAction: "Next Action",
+                  dealValue: "Deal Value",
+                };
+                const isActive = sortColumn === col;
+                return (
+                  <button
+                    key={col}
+                    onClick={() => handleSort(col)}
+                    className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
+                      isActive
+                        ? "bg-foreground text-background"
+                        : "bg-muted text-muted-foreground hover:bg-muted/80"
+                    }`}
+                  >
+                    {labels[col!]}
+                    {isActive && (
+                      sortDirection === "asc"
+                        ? <ArrowUp className="w-3 h-3" />
+                        : <ArrowDown className="w-3 h-3" />
+                    )}
+                  </button>
+                );
+              })}
             </div>
           )}
 
