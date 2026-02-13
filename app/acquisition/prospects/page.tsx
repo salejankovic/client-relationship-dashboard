@@ -132,6 +132,7 @@ function ProspectsContent() {
   const [sortColumn, setSortColumn] = useState<SortColumn>(null);
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
   const [viewMode, setViewMode] = useState<ViewMode>("table");
+  const [isFixingLastContact, setIsFixingLastContact] = useState(false);
 
   // Filter out archived prospects
   const prospects = useMemo(
@@ -321,6 +322,21 @@ function ProspectsContent() {
     fireConfetti();
   };
 
+  const handleFixLastContact = async () => {
+    setIsFixingLastContact(true);
+    try {
+      const res = await fetch("/api/admin/fix-last-contact", { method: "POST" });
+      const data = await res.json();
+      alert(data.message || "Done");
+      // Reload prospects data
+      window.location.reload();
+    } catch {
+      alert("Failed to fix last contact dates.");
+    } finally {
+      setIsFixingLastContact(false);
+    }
+  };
+
   const SortIcon = ({ column }: { column: SortColumn }) => {
     if (sortColumn !== column) {
       return <ArrowUpDown className="w-3 h-3 ml-1 opacity-50" />;
@@ -371,6 +387,19 @@ function ProspectsContent() {
                   <LayoutGrid className="w-4 h-4" />
                 </button>
               </div>
+              <Button
+                variant="outline"
+                className="bg-transparent"
+                onClick={handleFixLastContact}
+                disabled={isFixingLastContact}
+              >
+                {isFixingLastContact ? (
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                ) : (
+                  <CheckCircle2 className="w-4 h-4 mr-2" />
+                )}
+                Fix Last Contact
+              </Button>
               <Button variant="outline" asChild className="bg-transparent">
                 <Link href="/acquisition/import">
                   <Upload className="w-4 h-4 mr-2" />
