@@ -15,6 +15,7 @@ export async function POST() {
 
     let updated = 0;
     let skipped = 0;
+    const results: string[] = [];
 
     for (const prospect of prospects) {
       // 2. Find the most recent communication for this prospect
@@ -27,6 +28,7 @@ export async function POST() {
         .single();
 
       if (!latestComm?.created_at) {
+        // No communications at all — skip, leave as-is
         skipped++;
         continue;
       }
@@ -36,8 +38,9 @@ export async function POST() {
         ? new Date(prospect.last_contact_date).toISOString().split("T")[0]
         : null;
 
-      // Only update if the communication date is more recent (or if no date set)
-      if (!currentDate || newDate > currentDate) {
+      // Always set last_contact_date from communications (source of truth).
+      // This overwrites any incorrect "today" dates set by the old next-action bug.
+      if (currentDate !== newDate) {
         const { error: updateError } = await supabase
           .from("prospects")
           .update({ last_contact_date: newDate })
@@ -45,18 +48,21 @@ export async function POST() {
 
         if (!updateError) {
           updated++;
-          console.log(`Updated ${prospect.company}: ${currentDate ?? "none"} → ${newDate}`);
+          results.push(`${prospect.company}: ${currentDate ?? "none"} → ${newDate}`);
         }
       } else {
         skipped++;
       }
     }
 
+    console.log("fix-last-contact results:", results);
+
     return NextResponse.json({
-      message: `Done. Updated ${updated} prospects, skipped ${skipped}.`,
+      message: `Done. Updated ${updated} prospects, skipped ${skipped} (already correct or no communications).`,
       updated,
       skipped,
       total: prospects.length,
+      details: results,
     });
   } catch (error) {
     console.error("fix-last-contact error:", error);
