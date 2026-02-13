@@ -47,11 +47,14 @@ import {
   ArrowUpDown,
   ArrowUp,
   ArrowDown,
+  LayoutList,
+  LayoutGrid,
 } from "lucide-react";
 
 type HealthStatus = "Active" | "Cooling" | "Cold" | "Frozen";
-type SortColumn = "dealValue" | "lastContact" | "status" | null;
+type SortColumn = "dealValue" | "lastContact" | "status" | "nextAction" | null;
 type SortDirection = "asc" | "desc";
+type ViewMode = "table" | "grid";
 
 function getHealthStatus(daysSinceContact: number): HealthStatus {
   if (daysSinceContact <= 7) return "Active";
@@ -102,6 +105,15 @@ function DaysIndicator({ days }: { days?: number }) {
   );
 }
 
+function getComputedDaysSinceContact(prospect: Prospect): number {
+  if (prospect.lastContactDate) {
+    const last = new Date(prospect.lastContactDate + "T00:00:00");
+    const days = Math.max(0, Math.floor((Date.now() - last.getTime()) / (1000 * 60 * 60 * 24)));
+    return days;
+  }
+  return prospect.daysSinceContact ?? 0;
+}
+
 function ProspectsContent() {
   const { prospects: allProspects, loading, deleteProspect, updateProspect } = useProspects();
   const { countries } = useCountries();
@@ -116,6 +128,7 @@ function ProspectsContent() {
   const [lastSelectedIndex, setLastSelectedIndex] = useState<number | null>(null);
   const [sortColumn, setSortColumn] = useState<SortColumn>(null);
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
+  const [viewMode, setViewMode] = useState<ViewMode>("table");
 
   // Filter out archived prospects
   const prospects = useMemo(
@@ -205,20 +218,24 @@ function ProspectsContent() {
           if (sortColumn === 'dealValue') {
             comparison = parseDealValue(a.dealValue) - parseDealValue(b.dealValue);
           } else if (sortColumn === 'lastContact') {
-            comparison = (a.daysSinceContact ?? 0) - (b.daysSinceContact ?? 0);
+            comparison = getComputedDaysSinceContact(a) - getComputedDaysSinceContact(b);
           } else if (sortColumn === 'status') {
             comparison = getStatusPriority(a.status) - getStatusPriority(b.status);
+          } else if (sortColumn === 'nextAction') {
+            const nA = (a.nextAction || '').toLowerCase();
+            const nB = (b.nextAction || '').toLowerCase();
+            comparison = nA.localeCompare(nB);
           }
 
           return sortDirection === 'asc' ? comparison : -comparison;
         }
 
         // Default sort by days since contact (descending)
-        return (b.daysSinceContact ?? 0) - (a.daysSinceContact ?? 0);
+        return getComputedDaysSinceContact(b) - getComputedDaysSinceContact(a);
       });
   }, [prospects, search, productFilter, typeFilter, countryFilter, ownerFilter, statusFilter, customLabelFilter, sortColumn, sortDirection]);
 
-  const needsFollowUp = filteredProspects.filter((p) => (p.daysSinceContact ?? 0) > 14);
+  const needsFollowUp = filteredProspects.filter((p) => getComputedDaysSinceContact(p) > 14);
 
   const handleSelectAll = (checked: boolean) => {
     if (checked) {
@@ -333,6 +350,22 @@ function ProspectsContent() {
           <div className="flex items-center justify-between mb-6">
             <h1 className="text-2xl font-semibold text-foreground">Prospects</h1>
             <div className="flex items-center gap-2">
+              <div className="flex items-center border rounded-lg overflow-hidden">
+                <button
+                  onClick={() => setViewMode("table")}
+                  className={`p-2 transition-colors ${viewMode === "table" ? "bg-foreground text-background" : "text-muted-foreground hover:bg-muted"}`}
+                  title="Table view"
+                >
+                  <LayoutList className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={() => setViewMode("grid")}
+                  className={`p-2 transition-colors ${viewMode === "grid" ? "bg-foreground text-background" : "text-muted-foreground hover:bg-muted"}`}
+                  title="Grid view"
+                >
+                  <LayoutGrid className="w-4 h-4" />
+                </button>
+              </div>
               <Button variant="outline" asChild className="bg-transparent">
                 <Link href="/acquisition/import">
                   <Upload className="w-4 h-4 mr-2" />
@@ -489,7 +522,60 @@ function ProspectsContent() {
             </div>
           )}
 
-          {/* Table */}
+          {/* Table / Grid */}
+          {viewMode === "grid" ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {filteredProspects.map((prospect) => {
+                const countryData = countries.find(c => c.name === prospect.country);
+                const statusEmoji = {
+                  'Not contacted yet': '✉️',
+                  'Hot': '🔥',
+                  'Warm': '☀️',
+                  'Cold': '❄️',
+                  'Lost': ''
+                }[prospect.status] || '';
+                const days = getComputedDaysSinceContact(prospect);
+
+                return (
+                  <Link
+                    key={prospect.id}
+                    href={`/acquisition/prospects/${prospect.id}`}
+                    className="block border rounded-lg p-4 hover:bg-muted/30 transition-colors bg-card"
+                  >
+                    <div className="flex items-start justify-between gap-2 mb-2">
+                      <div className="flex items-center gap-2 min-w-0">
+                        {countryData?.flagEmoji && (
+                          <CountryFlag code={countryData.flagEmoji} className="w-5 h-4 flex-shrink-0" />
+                        )}
+                        <span className="font-semibold text-foreground truncate">{prospect.company}</span>
+                      </div>
+                      <span title={prospect.status} className="text-lg flex-shrink-0">{statusEmoji || prospect.status}</span>
+                    </div>
+                    {prospect.contactPerson && (
+                      <p className="text-sm text-muted-foreground mb-2">{prospect.contactPerson}</p>
+                    )}
+                    <div className="flex items-center justify-between text-sm mt-2 pt-2 border-t">
+                      {prospect.productType && <ProductBadge product={prospect.productType} />}
+                      <span className="text-muted-foreground">{prospect.dealValue || ""}</span>
+                    </div>
+                    <div className="flex items-center justify-between mt-2 text-xs text-muted-foreground">
+                      <DaysIndicator days={days} />
+                      {prospect.nextAction && (
+                        <span className="truncate max-w-[120px] ml-2" title={prospect.nextAction}>
+                          → {prospect.nextAction}
+                        </span>
+                      )}
+                    </div>
+                  </Link>
+                );
+              })}
+              {filteredProspects.length === 0 && (
+                <p className="text-center text-muted-foreground py-8 col-span-full">
+                  No prospects found matching your filters
+                </p>
+              )}
+            </div>
+          ) : (
           <div className="border rounded-lg overflow-hidden">
             <Table>
               <TableHeader>
@@ -530,7 +616,15 @@ function ProspectsContent() {
                       <SortIcon column="lastContact" />
                     </button>
                   </TableHead>
-                  <TableHead>Next Action</TableHead>
+                  <TableHead>
+                    <button
+                      onClick={() => handleSort('nextAction')}
+                      className="flex items-center hover:text-foreground transition-colors"
+                    >
+                      Next Action
+                      <SortIcon column="nextAction" />
+                    </button>
+                  </TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -581,12 +675,12 @@ function ProspectsContent() {
                         {prospect.dealValue || "-"}
                       </TableCell>
                       <TableCell>
-                        <span className="flex items-center gap-1">
-                          {statusEmoji} {prospect.status}
+                        <span title={prospect.status} className="text-base">
+                          {statusEmoji || prospect.status}
                         </span>
                       </TableCell>
                       <TableCell>
-                        <DaysIndicator days={prospect.daysSinceContact} /> ago
+                        <DaysIndicator days={getComputedDaysSinceContact(prospect)} /> ago
                       </TableCell>
                       <TableCell className="max-w-[200px]">
                         {prospect.nextAction ? (
@@ -629,7 +723,7 @@ function ProspectsContent() {
                 })}
                 {filteredProspects.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                    <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
                       No prospects found matching your filters
                     </TableCell>
                   </TableRow>
@@ -637,6 +731,8 @@ function ProspectsContent() {
               </TableBody>
             </Table>
           </div>
+
+          )}
 
           <p className="text-sm text-muted-foreground mt-4">
             Showing {filteredProspects.length} of {prospects.length} prospects

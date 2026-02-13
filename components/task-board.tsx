@@ -167,9 +167,9 @@ export function TaskBoard({ clients, onUpdateClient, onSelectClient }: TaskBoard
                   <p className="text-foreground">{todo.text}</p>
                   <div className="flex items-center gap-1.5 mt-0.5">
                     {client.logoUrl ? (
-                      <img src={client.logoUrl} alt="" className="h-4 w-4 rounded-sm object-cover" />
+                      <img src={client.logoUrl} alt="" className="h-6 w-6 rounded-sm object-cover" />
                     ) : (
-                      <div className="h-4 w-4 rounded-sm bg-primary text-primary-foreground flex items-center justify-center text-[8px] font-bold">
+                      <div className="h-6 w-6 rounded-sm bg-primary text-primary-foreground flex items-center justify-center text-[9px] font-bold">
                         {client.name.substring(0, 2).toUpperCase()}
                       </div>
                     )}
@@ -217,9 +217,9 @@ export function TaskBoard({ clients, onUpdateClient, onSelectClient }: TaskBoard
                       <p className="text-foreground line-through">{todo.text}</p>
                       <div className="flex items-center gap-1.5 mt-0.5">
                         {client.logoUrl ? (
-                          <img src={client.logoUrl} alt="" className="h-4 w-4 rounded-sm object-cover" />
+                          <img src={client.logoUrl} alt="" className="h-6 w-6 rounded-sm object-cover" />
                         ) : (
-                          <div className="h-4 w-4 rounded-sm bg-primary text-primary-foreground flex items-center justify-center text-[8px] font-bold">
+                          <div className="h-6 w-6 rounded-sm bg-primary text-primary-foreground flex items-center justify-center text-[9px] font-bold">
                             {client.name.substring(0, 2).toUpperCase()}
                           </div>
                         )}

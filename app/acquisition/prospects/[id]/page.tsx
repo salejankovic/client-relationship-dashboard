@@ -11,7 +11,6 @@ import { useProducts } from "@/hooks/use-products"
 import { useProspectTypes } from "@/hooks/use-prospect-types"
 import { useTeamMembers } from "@/hooks/use-team-members"
 import { EmailComposerModal } from "@/components/email-composer-modal"
-import { AIInsightsCard } from "@/components/ai-insights-card"
 import { IntelligenceCard, FollowupEmailDialog } from "@/components/intelligence"
 import type { IntelligenceItem } from "@/lib/types"
 import { ArchiveProspectDialog } from "@/components/archive-prospect-dialog"
@@ -55,7 +54,8 @@ export default function ProspectDetailPage() {
   const [showArchiveDialog, setShowArchiveDialog] = useState(false)
   const [isFetchingNews, setIsFetchingNews] = useState(false)
   const [isFetchingEmails, setIsFetchingEmails] = useState(false)
-  const [emailsToShow, setEmailsToShow] = useState(10)
+  const [emailsToShow, setEmailsToShow] = useState(3)
+  const [intelligenceToShow, setIntelligenceToShow] = useState(3)
   const [expandedEmails, setExpandedEmails] = useState<Set<string>>(new Set())
   const [emailFilter, setEmailFilter] = useState<'all' | 'sent' | 'received'>('all')
   const [followupDialogOpen, setFollowupDialogOpen] = useState(false)
@@ -428,33 +428,6 @@ export default function ProspectDetailPage() {
                 </SelectContent>
               </Select>
             </div>
-            <div>
-              <label className="text-sm font-medium block mb-2">Owner</label>
-              <Select
-                value={prospect.owner || ""}
-                onValueChange={(value: string) => setProspect({ ...prospect, owner: value })}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select owner" />
-                </SelectTrigger>
-                <SelectContent>
-                  {teamMembers.map((member) => (
-                    <SelectItem key={member} value={member}>
-                      {member}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <label className="text-sm font-medium block mb-2">Custom Label</label>
-              <Input
-                type="text"
-                value={prospect.customLabel || ""}
-                onChange={(e) => setProspect({ ...prospect, customLabel: e.target.value || undefined })}
-                placeholder="e.g., Athens trip March 2026"
-              />
-            </div>
           </CardContent>
         </Card>
 
@@ -533,11 +506,41 @@ export default function ProspectDetailPage() {
             )}
           </CardContent>
         </Card>
-      </div>
-
-      {/* AI Insights */}
-      <div className="mb-6">
-        <AIInsightsCard prospect={prospect} />
+        {/* Owner & Label */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg">Owner & Label</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div>
+              <label className="text-sm font-medium block mb-2">Owner</label>
+              <Select
+                value={prospect.owner || ""}
+                onValueChange={(value: string) => setProspect({ ...prospect, owner: value })}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select owner" />
+                </SelectTrigger>
+                <SelectContent>
+                  {teamMembers.map((member) => (
+                    <SelectItem key={member} value={member}>
+                      {member}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <label className="text-sm font-medium block mb-2">Custom Label</label>
+              <Input
+                type="text"
+                value={prospect.customLabel || ""}
+                onChange={(e) => setProspect({ ...prospect, customLabel: e.target.value || undefined })}
+                placeholder="e.g., Athens trip March 2026"
+              />
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
       {/* Intelligence Feed */}
@@ -587,7 +590,7 @@ export default function ProspectDetailPage() {
             </p>
           ) : (
             <div className="space-y-4">
-              {intelligenceItems.filter(i => !i.dismissed).slice(0, 5).map((item) => (
+              {intelligenceItems.filter(i => !i.dismissed).slice(0, intelligenceToShow).map((item) => (
                 <IntelligenceCard
                   key={item.id}
                   item={item}
@@ -596,13 +599,15 @@ export default function ProspectDetailPage() {
                   onUseInFollowUp={handleUseInFollowUp}
                 />
               ))}
-              {intelligenceItems.filter(i => !i.dismissed).length > 5 && (
+              {intelligenceItems.filter(i => !i.dismissed).length > intelligenceToShow && (
                 <div className="text-center pt-2">
-                  <Link href="/acquisition/intelligence">
-                    <Button variant="outline" size="sm">
-                      View all {intelligenceItems.filter(i => !i.dismissed).length} items
-                    </Button>
-                  </Link>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setIntelligenceToShow(prev => prev + 5)}
+                  >
+                    Show more ({intelligenceItems.filter(i => !i.dismissed).length - intelligenceToShow} remaining)
+                  </Button>
                 </div>
               )}
             </div>
@@ -610,13 +615,9 @@ export default function ProspectDetailPage() {
         </CardContent>
       </Card>
 
-      {/* Contacts */}
-      <div className="mb-6">
+      {/* Contacts + Next Action side by side */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
         <ProspectContactsManager prospectId={prospectId} />
-      </div>
-
-      {/* Next Action */}
-      <div className="mb-6">
         <NextActionField
           nextAction={prospect.nextAction || ""}
           nextActionDate={prospect.nextActionDate || ""}
