@@ -16,7 +16,8 @@ export async function POST(request: NextRequest) {
       intelligenceItems,
       tone,
       goal,
-      language,
+      languageName,
+      promptInstruction,
       context,
     } = await request.json();
 
@@ -55,7 +56,7 @@ EMAIL GOAL: ${goal}
 TONE: ${tone}
 ${intelligenceSection}
 ${context ? `ADDITIONAL CONTEXT FROM SENDER:\n${context}\n` : ""}
-Write a ${tone} ${language} sales email FROM Aleksandar at Appworks TO ${contactLine} at ${prospectCompany}.
+Write a ${tone} ${languageName} sales email FROM Aleksandar at Appworks TO ${contactLine} at ${prospectCompany}.
 
 Guidelines:
 - Greeting should address ${contactPerson || "the team"} directly
@@ -64,13 +65,16 @@ Guidelines:
 - Keep it concise (110-140 words), human, and specific — avoid generic sales language
 - End with a clear, low-pressure call to action matching the goal
 - Sign off as: Aleksandar / Appworks
-${language === "croatian" ? "- Write entirely in Croatian, using formal 'Vi' form." : language === "serbian" ? "- Write entirely in Serbian (Latin script), using formal 'Vi' form." : "- Write in English."}
+- ${promptInstruction || `Write in ${languageName}.`}
 
 Format your response as JSON:
 {
-  "subject": "Email subject line",
+  "subject": "Primary email subject line",
+  "alternativeSubjects": ["Subject option 2", "Subject option 3", "Subject option 4"],
   "body": "Full email body"
-}`;
+}
+
+The 3 alternativeSubjects should be meaningfully different from the primary subject — vary the angle, specificity, or hook.`;
 
     const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
     const result = await model.generateContent(prompt);
@@ -85,6 +89,7 @@ Format your response as JSON:
 
       return NextResponse.json({
         subject: emailData.subject,
+        alternativeSubjects: emailData.alternativeSubjects ?? [],
         body: emailData.body,
       });
     } catch (parseError) {
@@ -95,6 +100,7 @@ Format your response as JSON:
       if (subjectMatch && bodyMatch) {
         return NextResponse.json({
           subject: subjectMatch[1],
+          alternativeSubjects: [],
           body: bodyMatch[1].replace(/\\n/g, "\n"),
         });
       }
@@ -102,6 +108,7 @@ Format your response as JSON:
       // Fallback: return raw text
       return NextResponse.json({
         subject: `Re: ${prospectCompany}`,
+        alternativeSubjects: [],
         body: text,
       });
     }

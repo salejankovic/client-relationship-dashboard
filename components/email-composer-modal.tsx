@@ -7,9 +7,10 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Input } from "@/components/ui/input"
-import { Loader2, Wand2, Copy, Check } from "lucide-react"
+import { Loader2, Wand2, Copy, Check, RefreshCw } from "lucide-react"
 import { generateEmailContent } from "@/hooks/use-email-drafts"
-import type { EmailTone, EmailGoal, EmailLanguage, EmailDraft, IntelligenceItem, ProspectStatus, ProspectType } from "@/lib/types"
+import { useEmailLanguages } from "@/hooks/use-email-languages"
+import type { EmailTone, EmailGoal, EmailDraft, IntelligenceItem, ProspectStatus, ProspectType } from "@/lib/types"
 
 interface EmailComposerModalProps {
   open: boolean
@@ -43,14 +44,18 @@ export function EmailComposerModal({
 }: EmailComposerModalProps) {
   const [tone, setTone] = useState<EmailTone>("formal")
   const [goal, setGoal] = useState<EmailGoal>("check-in")
-  const [language, setLanguage] = useState<EmailLanguage>("english")
+  const { languages: emailLanguages } = useEmailLanguages()
+  const [language, setLanguage] = useState<string>("english")
   const [context, setContext] = useState("")
   const [subject, setSubject] = useState("")
+  const [alternativeSubjects, setAlternativeSubjects] = useState<string[]>([])
   const [body, setBody] = useState("")
   const [isGenerating, setIsGenerating] = useState(false)
+  const [isRefining, setIsRefining] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
   const [hasGenerated, setHasGenerated] = useState(false)
   const [copied, setCopied] = useState(false)
+  const [refineInstructions, setRefineInstructions] = useState("")
 
   const handleGenerate = async () => {
     setIsGenerating(true)
@@ -60,6 +65,9 @@ export function EmailComposerModal({
         ?.filter(i => !i.dismissed)
         .slice(0, 3)
         .map(i => ({ title: i.title, description: i.description, aiTip: i.aiTip }))
+
+      const selectedLang = emailLanguages.find(l => l.id === language)
+      const promptInstruction = selectedLang?.promptInstruction ?? `Write in ${language}.`
 
       const response = await fetch("/api/generate-email", {
         method: "POST",
@@ -75,7 +83,8 @@ export function EmailComposerModal({
           intelligenceItems: topIntelligence,
           tone,
           goal,
-          language,
+          languageName: selectedLang?.name ?? language,
+          promptInstruction,
           context,
         }),
       })
@@ -84,11 +93,13 @@ export function EmailComposerModal({
         throw new Error("Failed to generate email")
       }
 
-      const { subject: generatedSubject, body: generatedBody } = await response.json()
+      const { subject: generatedSubject, alternativeSubjects: alts, body: generatedBody } = await response.json()
 
       setSubject(generatedSubject)
+      setAlternativeSubjects(alts ?? [])
       setBody(generatedBody)
       setHasGenerated(true)
+      setRefineInstructions("")
     } catch (error) {
       console.error("Error generating email:", error)
       // Fallback to template generation
@@ -100,10 +111,46 @@ export function EmailComposerModal({
         context
       )
       setSubject(generatedSubject)
+      setAlternativeSubjects([])
       setBody(generatedBody)
       setHasGenerated(true)
     } finally {
       setIsGenerating(false)
+    }
+  }
+
+  const handleRefine = async () => {
+    if (!refineInstructions.trim()) return
+    setIsRefining(true)
+    try {
+      const selectedLang = emailLanguages.find(l => l.id === language)
+      const promptInstruction = selectedLang?.promptInstruction ?? `Write in ${language}.`
+
+      const response = await fetch("/api/refine-email", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          existingSubject: subject,
+          existingBody: body,
+          refineInstructions,
+          prospectCompany,
+          contactPerson,
+          languageName: selectedLang?.name ?? language,
+          promptInstruction,
+        }),
+      })
+
+      if (!response.ok) throw new Error("Failed to refine email")
+
+      const { subject: refinedSubject, alternativeSubjects: alts, body: refinedBody } = await response.json()
+      setSubject(refinedSubject)
+      setAlternativeSubjects(alts ?? [])
+      setBody(refinedBody)
+      setRefineInstructions("")
+    } catch (error) {
+      console.error("Error refining email:", error)
+    } finally {
+      setIsRefining(false)
     }
   }
 
@@ -117,13 +164,15 @@ export function EmailComposerModal({
         tone,
         goal,
         language,
-        aiModel: "gemini-pro",
+        aiModel: "gemini-2.5-flash",
       })
 
       // Reset form
       setSubject("")
+      setAlternativeSubjects([])
       setBody("")
       setContext("")
+      setRefineInstructions("")
       setHasGenerated(false)
       onOpenChange(false)
     } catch (error) {
@@ -142,8 +191,10 @@ export function EmailComposerModal({
 
   const handleClose = () => {
     setSubject("")
+    setAlternativeSubjects([])
     setBody("")
     setContext("")
+    setRefineInstructions("")
     setHasGenerated(false)
     onOpenChange(false)
   }
@@ -195,14 +246,14 @@ export function EmailComposerModal({
 
             <div className="space-y-2">
               <Label htmlFor="language">Language</Label>
-              <Select value={language} onValueChange={(value) => setLanguage(value as EmailLanguage)}>
+              <Select value={language} onValueChange={setLanguage}>
                 <SelectTrigger id="language">
-                  <SelectValue />
+                  <SelectValue placeholder="Select language" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="english">English</SelectItem>
-                  <SelectItem value="croatian">Croatian</SelectItem>
-                  <SelectItem value="serbian">Serbian</SelectItem>
+                  {emailLanguages.map((lang) => (
+                    <SelectItem key={lang.id} value={lang.id}>{lang.name}</SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
@@ -272,6 +323,23 @@ export function EmailComposerModal({
                   onChange={(e) => setSubject(e.target.value)}
                   placeholder="Email subject"
                 />
+                {alternativeSubjects.length > 0 && (
+                  <div className="space-y-1.5 pt-1">
+                    <p className="text-xs text-muted-foreground">Alternative subjects — click to use:</p>
+                    <div className="flex flex-col gap-1.5">
+                      {alternativeSubjects.map((alt, i) => (
+                        <button
+                          key={i}
+                          type="button"
+                          onClick={() => setSubject(alt)}
+                          className="text-left text-xs px-3 py-1.5 rounded-md border border-dashed border-border hover:border-primary hover:bg-accent transition-colors text-muted-foreground hover:text-foreground"
+                        >
+                          {alt}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
 
               <div className="space-y-2">
@@ -283,6 +351,36 @@ export function EmailComposerModal({
                   rows={12}
                   className="font-mono text-sm"
                 />
+              </div>
+
+              {/* Refine Section */}
+              <div className="space-y-2 rounded-lg border bg-muted/40 p-4">
+                <Label htmlFor="refine" className="text-sm font-medium">Refine with AI</Label>
+                <Textarea
+                  id="refine"
+                  placeholder="e.g. Make it shorter, add a reference to their recent match, change the CTA to propose a specific date..."
+                  value={refineInstructions}
+                  onChange={(e) => setRefineInstructions(e.target.value)}
+                  rows={2}
+                />
+                <Button
+                  onClick={handleRefine}
+                  disabled={isRefining || !refineInstructions.trim()}
+                  variant="secondary"
+                  size="sm"
+                >
+                  {isRefining ? (
+                    <>
+                      <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />
+                      Refining...
+                    </>
+                  ) : (
+                    <>
+                      <RefreshCw className="mr-2 h-3.5 w-3.5" />
+                      Refine Email
+                    </>
+                  )}
+                </Button>
               </div>
 
               {/* Actions */}

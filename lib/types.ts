@@ -76,7 +76,7 @@ export const PRODUCT_BADGE_COLORS: Record<ProductType, string> = {
 }
 export type EmailTone = 'formal' | 'casual' | 'urgent' | 'english' | 'shorter'
 export type EmailGoal = 'check-in' | 'schedule-call' | 'share-update' | 're-introduce' | 'close-deal'
-export type EmailLanguage = 'croatian' | 'serbian' | 'english'
+export type EmailLanguage = string
 export type Sentiment = 'positive' | 'neutral' | 'negative'
 export type RiskLevel = 'low' | 'medium' | 'high'
 

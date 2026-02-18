@@ -13,6 +13,7 @@ import { useTeamMembers } from "@/hooks/use-team-members"
 import { useProspectTypes } from "@/hooks/use-prospect-types"
 import { useEmailAccounts } from "@/hooks/use-email-accounts"
 import { useCountries } from "@/hooks/use-countries"
+import { useEmailLanguages } from "@/hooks/use-email-languages"
 import { MainNav } from "@/components/main-nav"
 import { AppSidebar } from "@/components/app-sidebar"
 import { MobileNav } from "@/components/mobile-nav"
@@ -25,6 +26,7 @@ export default function SettingsPage() {
   const { prospectTypes, addProspectType, deleteProspectType } = useProspectTypes()
   const { accounts: emailAccounts, addAccount, deleteAccount, testConnection } = useEmailAccounts()
   const { countries, addCountry, deleteCountry } = useCountries()
+  const { languages: emailLanguages, addLanguage, deleteLanguage } = useEmailLanguages()
 
   const [newProduct, setNewProduct] = useState("")
   const [newProductBgColor, setNewProductBgColor] = useState("#3b82f6")
@@ -36,6 +38,8 @@ export default function SettingsPage() {
   const [newProspectType, setNewProspectType] = useState("")
   const [newCountryName, setNewCountryName] = useState("")
   const [newCountryFlag, setNewCountryFlag] = useState("")
+  const [newLanguageName, setNewLanguageName] = useState("")
+  const [newLanguageInstruction, setNewLanguageInstruction] = useState("")
   const [showAddEmailAccount, setShowAddEmailAccount] = useState(false)
   const [newEmailAccount, setNewEmailAccount] = useState({
     accountName: "",
@@ -126,6 +130,15 @@ export default function SettingsPage() {
 
   const removeCountry = async (countryId: string) => {
     await deleteCountry(countryId)
+  }
+
+  const addLanguageHandler = async () => {
+    if (newLanguageName.trim()) {
+      const instruction = newLanguageInstruction.trim() || `Write in ${newLanguageName.trim()}.`
+      await addLanguage(newLanguageName.trim(), instruction)
+      setNewLanguageName("")
+      setNewLanguageInstruction("")
+    }
   }
 
   const handleTestConnection = async () => {
@@ -473,6 +486,53 @@ export default function SettingsPage() {
                 className="bg-background border-border"
               />
               <Button onClick={addTeamMember}>
+                <Plus className="h-4 w-4 mr-2" />
+                Add
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-card border-border">
+          <CardHeader>
+            <CardTitle>Email Languages</CardTitle>
+            <CardDescription>Languages available in the AI Email Composer. Add a prompt instruction to control formality or dialect (e.g. "Write in French, using formal 'vous' form.").</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex flex-col gap-2">
+              {emailLanguages.map((lang) => (
+                <div key={lang.id} className="flex items-center justify-between rounded-md border border-border px-3 py-2 text-sm">
+                  <div>
+                    <span className="font-medium">{lang.name}</span>
+                    <span className="ml-3 text-xs text-muted-foreground">{lang.promptInstruction}</span>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7 hover:bg-destructive/20"
+                    onClick={() => deleteLanguage(lang.id)}
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+              ))}
+            </div>
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-[1fr_2fr_auto]">
+              <Input
+                placeholder="Language name (e.g. French)"
+                value={newLanguageName}
+                onChange={(e) => setNewLanguageName(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && addLanguageHandler()}
+                className="bg-background border-border"
+              />
+              <Input
+                placeholder={`Prompt instruction (e.g. "Write in French, using formal 'vous' form.") — optional`}
+                value={newLanguageInstruction}
+                onChange={(e) => setNewLanguageInstruction(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && addLanguageHandler()}
+                className="bg-background border-border"
+              />
+              <Button onClick={addLanguageHandler} disabled={!newLanguageName.trim()}>
                 <Plus className="h-4 w-4 mr-2" />
                 Add
               </Button>
