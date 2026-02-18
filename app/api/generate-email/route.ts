@@ -5,29 +5,66 @@ const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
 
 export async function POST(request: NextRequest) {
   try {
-    const { prospectCompany, contactPerson, tone, goal, language, context, dealValue, productType } = await request.json();
+    const {
+      prospectCompany,
+      contactPerson,
+      contactPosition,
+      prospectType,
+      daysSinceContact,
+      lastContactDate,
+      status,
+      intelligenceItems,
+      tone,
+      goal,
+      language,
+      context,
+    } = await request.json();
+
+    // Build contact line
+    const contactLine = contactPerson
+      ? `${contactPerson}${contactPosition ? `, ${contactPosition}` : ""}`
+      : "the team";
+
+    // Build last contact context
+    let lastContactLine = "No previous contact recorded.";
+    if (daysSinceContact != null) {
+      if (daysSinceContact === 0) lastContactLine = "Last contact was today.";
+      else if (daysSinceContact === 1) lastContactLine = "Last contact was yesterday.";
+      else lastContactLine = `Last contact was ${daysSinceContact} days ago (${lastContactDate || "unknown date"}).`;
+    }
+
+    // Build intelligence context
+    let intelligenceSection = "";
+    if (intelligenceItems && intelligenceItems.length > 0) {
+      const items = intelligenceItems
+        .map((item: { title: string; description?: string; aiTip?: string }, i: number) =>
+          `  ${i + 1}. "${item.title}"${item.description ? ` — ${item.description}` : ""}${item.aiTip ? ` (Suggested angle: ${item.aiTip})` : ""}`)
+        .join("\n");
+      intelligenceSection = `\nRecent intelligence about ${prospectCompany} (optionally reference one naturally):\n${items}\n`;
+    }
 
     // Build the prompt
-    const prompt = `You are a B2B sales professional writing a ${language} email.
+    const prompt = `You are Aleksandar, a B2B sales professional at Appworks, writing an email to a prospect.
 
-Context:
-- Company: ${prospectCompany}
-- Contact Person: ${contactPerson || "the team"}
-- Product/Service: ${productType || "software solutions"}
-- Deal Value: ${dealValue ? `€${dealValue.toLocaleString()}` : "not specified"}
-- Email Goal: ${goal}
-- Tone: ${tone}
-- Additional Context: ${context || "Initial outreach"}
+SENDER: Aleksandar, Appworks
+RECIPIENT: ${contactLine} at ${prospectCompany}
+PROSPECT TYPE: ${prospectType || "Unknown"}
+PROSPECT STATUS: ${status || "Unknown"}
+LAST CONTACT: ${lastContactLine}
+EMAIL GOAL: ${goal}
+TONE: ${tone}
+${intelligenceSection}
+${context ? `ADDITIONAL CONTEXT FROM SENDER:\n${context}\n` : ""}
+Write a ${tone} ${language} sales email FROM Aleksandar at Appworks TO ${contactLine} at ${prospectCompany}.
 
-Write a professional ${language} sales email with:
-1. A compelling subject line
-2. Personal, warm greeting
-3. Brief value proposition relevant to their industry
-4. Clear call to action based on the goal: ${goal}
-5. Professional signature
-
-Keep it concise (150-200 words), personalized, and action-oriented.
-${language === "croatian" ? "Write in Croatian language." : language === "serbian" ? "Write in Serbian language." : "Write in English."}
+Guidelines:
+- Greeting should address ${contactPerson || "the team"} directly
+- Naturally reflect the last-contact timing in the opening (e.g. acknowledge it's been a while if daysSinceContact is high)
+- If intelligence items are provided, you may weave in one relevant reference naturally — do NOT force it
+- Keep it concise (110-140 words), human, and specific — avoid generic sales language
+- End with a clear, low-pressure call to action matching the goal
+- Sign off as: Aleksandar / Appworks
+${language === "croatian" ? "- Write entirely in Croatian, using formal 'Vi' form." : language === "serbian" ? "- Write entirely in Serbian (Latin script), using formal 'Vi' form." : "- Write in English."}
 
 Format your response as JSON:
 {

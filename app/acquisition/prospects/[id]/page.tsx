@@ -892,6 +892,13 @@ export default function ProspectDetailPage() {
         prospectCompany={prospect.company}
         prospectId={prospect.id}
         onSave={addDraft}
+        contactPerson={prospect.contactPerson}
+        contactPosition={prospect.contactPosition}
+        prospectType={prospect.prospectType}
+        daysSinceContact={prospect.daysSinceContact}
+        lastContactDate={prospect.lastContactDate}
+        status={prospect.status}
+        intelligenceItems={intelligenceItems}
       />
 
       {/* Archive Prospect Dialog */}

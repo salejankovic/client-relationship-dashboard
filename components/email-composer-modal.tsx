@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Input } from "@/components/ui/input"
 import { Loader2, Wand2, Copy, Check } from "lucide-react"
 import { generateEmailContent } from "@/hooks/use-email-drafts"
-import type { EmailTone, EmailGoal, EmailLanguage, EmailDraft } from "@/lib/types"
+import type { EmailTone, EmailGoal, EmailLanguage, EmailDraft, IntelligenceItem, ProspectStatus, ProspectType } from "@/lib/types"
 
 interface EmailComposerModalProps {
   open: boolean
@@ -17,6 +17,14 @@ interface EmailComposerModalProps {
   prospectCompany: string
   prospectId: string
   onSave: (draft: Omit<EmailDraft, "id" | "createdAt">) => Promise<void>
+  // Enriched context
+  contactPerson?: string
+  contactPosition?: string
+  prospectType?: ProspectType
+  daysSinceContact?: number
+  lastContactDate?: string
+  status?: ProspectStatus
+  intelligenceItems?: IntelligenceItem[]
 }
 
 export function EmailComposerModal({
@@ -25,6 +33,13 @@ export function EmailComposerModal({
   prospectCompany,
   prospectId,
   onSave,
+  contactPerson,
+  contactPosition,
+  prospectType,
+  daysSinceContact,
+  lastContactDate,
+  status,
+  intelligenceItems,
 }: EmailComposerModalProps) {
   const [tone, setTone] = useState<EmailTone>("formal")
   const [goal, setGoal] = useState<EmailGoal>("check-in")
@@ -41,11 +56,23 @@ export function EmailComposerModal({
     setIsGenerating(true)
 
     try {
+      const topIntelligence = intelligenceItems
+        ?.filter(i => !i.dismissed)
+        .slice(0, 3)
+        .map(i => ({ title: i.title, description: i.description, aiTip: i.aiTip }))
+
       const response = await fetch("/api/generate-email", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           prospectCompany,
+          contactPerson,
+          contactPosition,
+          prospectType,
+          daysSinceContact,
+          lastContactDate,
+          status,
+          intelligenceItems: topIntelligence,
           tone,
           goal,
           language,
