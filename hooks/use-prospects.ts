@@ -157,7 +157,9 @@ export function useProspects() {
           deal_value: prospect.dealValue || null,
           next_action: prospect.nextAction || null,
           next_action_date: prospect.nextActionDate || null,
-          next_action_suggestion: prospect.nextActionSuggestion || null,
+          // Only include if explicitly set — omit when undefined so the update
+          // doesn't fail before migration 015 runs (column may not exist yet)
+          ...(prospect.nextActionSuggestion !== undefined ? { next_action_suggestion: prospect.nextActionSuggestion } : {}),
           last_contact_date: prospect.lastContactDate || null,
           archived: prospect.archived,
           archived_date: prospect.archivedDate || null,

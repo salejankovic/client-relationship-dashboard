@@ -281,7 +281,7 @@ export default function ProspectDetailPage() {
   }
 
   const handleDismissSuggestion = async () => {
-    const updated = { ...prospect, nextActionSuggestion: undefined }
+    const updated = { ...prospect, nextActionSuggestion: null }
     setProspect(updated)
     await updateProspect(updated)
   }
