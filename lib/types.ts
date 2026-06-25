@@ -106,6 +106,7 @@ export interface Prospect {
   // Activity Tracking
   nextAction?: string
   nextActionDate?: string
+  nextActionSuggestion?: string
   lastContactDate?: string
   daysSinceContact?: number
 

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { supabase } from "@/lib/supabase"
 import type { Prospect, ProspectComment } from "@/lib/types"
 
@@ -6,11 +6,14 @@ export function useProspects() {
   const [prospects, setProspects] = useState<Prospect[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<Error | null>(null)
+  const isFirstLoad = useRef(true)
 
   // Fetch prospects from Supabase
   const fetchProspects = async () => {
     try {
-      setLoading(true)
+      if (isFirstLoad.current) {
+        setLoading(true)
+      }
       const { data, error } = await supabase
         .from("prospects")
         .select("*")
@@ -38,6 +41,7 @@ export function useProspects() {
         dealValue: row.deal_value || undefined,
         nextAction: row.next_action || undefined,
         nextActionDate: row.next_action_date || undefined,
+        nextActionSuggestion: row.next_action_suggestion || undefined,
         lastContactDate: row.last_contact_date || undefined,
         daysSinceContact: row.days_since_contact || undefined,
         archived: row.archived || false,
@@ -53,6 +57,7 @@ export function useProspects() {
       setError(err as Error)
       console.error("Error fetching prospects:", err)
     } finally {
+      isFirstLoad.current = false
       setLoading(false)
     }
   }
@@ -152,6 +157,7 @@ export function useProspects() {
           deal_value: prospect.dealValue || null,
           next_action: prospect.nextAction || null,
           next_action_date: prospect.nextActionDate || null,
+          next_action_suggestion: prospect.nextActionSuggestion || null,
           last_contact_date: prospect.lastContactDate || null,
           archived: prospect.archived,
           archived_date: prospect.archivedDate || null,

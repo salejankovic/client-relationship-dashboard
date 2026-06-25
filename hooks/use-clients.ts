@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { supabase } from "@/lib/supabase"
 import type { Client } from "@/lib/types"
 
@@ -6,11 +6,14 @@ export function useClients() {
   const [clients, setClients] = useState<Client[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<Error | null>(null)
+  const isFirstLoad = useRef(true)
 
   // Fetch clients from Supabase
   const fetchClients = async () => {
     try {
-      setLoading(true)
+      if (isFirstLoad.current) {
+        setLoading(true)
+      }
       const { data, error } = await supabase
         .from("clients")
         .select("*")
@@ -45,6 +48,7 @@ export function useClients() {
       setError(err as Error)
       console.error("Error fetching clients:", err)
     } finally {
+      isFirstLoad.current = false
       setLoading(false)
     }
   }

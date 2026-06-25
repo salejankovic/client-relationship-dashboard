@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { useParams, useRouter } from "next/navigation"
 import { useProspects } from "@/hooks/use-prospects"
 import { useEmailDrafts } from "@/hooks/use-email-drafts"
@@ -29,7 +29,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { ArrowLeft, Loader2, Save, Trash2, Mail, ExternalLink, Lightbulb } from "lucide-react"
+import { ArrowLeft, Loader2, Save, Trash2, Mail, ExternalLink, Lightbulb, X } from "lucide-react"
 import Link from "next/link"
 import { CountryFlag } from "@/components/country-flag"
 import type { Prospect, ProspectStatus, ProductType, ProspectType, ActivityType, CommunicationType } from "@/lib/types"
@@ -61,10 +61,27 @@ export default function ProspectDetailPage() {
   const [followupDialogOpen, setFollowupDialogOpen] = useState(false)
   const [selectedIntelligence, setSelectedIntelligence] = useState<IntelligenceItem | null>(null)
 
+  // Track initial load so real-time refetches don't overwrite user's unsaved nextAction edits
+  const prospectLoaded = useRef(false)
+
   useEffect(() => {
     const found = prospects.find((p) => p.id === prospectId)
     if (found) {
-      setProspect(found)
+      if (!prospectLoaded.current) {
+        // Initial load: use everything from DB
+        setProspect(found)
+        prospectLoaded.current = true
+      } else {
+        // Subsequent DB refreshes: merge but preserve user's unsaved nextAction text
+        setProspect(prev => {
+          if (!prev) return found
+          return {
+            ...found,
+            nextAction: prev.nextAction,
+            nextActionDate: prev.nextActionDate,
+          }
+        })
+      }
     }
   }, [prospects, prospectId])
 
@@ -119,7 +136,6 @@ export default function ProspectDetailPage() {
   const handleFetchNews = async () => {
     setIsFetchingNews(true)
     try {
-      // Get primary contact name if available
       const primaryContact = contacts.find(c => c.isPrimary) || contacts[0]
 
       const response = await fetch("/api/fetch-intelligence", {
@@ -160,7 +176,6 @@ export default function ProspectDetailPage() {
   }
 
   const handleFetchEmails = async () => {
-    // Get primary contact email
     const primaryContact = contacts.find(c => c.isPrimary) || contacts[0]
     if (!primaryContact || !primaryContact.email) {
       alert("No contact email found. Please add a contact with an email address first.")
@@ -211,22 +226,19 @@ export default function ProspectDetailPage() {
     }
   }
 
-  // Transform communications to activity items and sort by date descending
-  // Include all activity types except emails (emails are shown in Previous Communication section)
   const activityTypes: CommunicationType[] = ['note', 'call', 'meeting', 'online_call', 'sms_whatsapp', 'linkedin', 'email_reply', 'followup_sent']
   const activities: ActivityItem[] = communications
     .filter((comm) => activityTypes.includes(comm.type))
     .map((comm) => ({
       id: comm.id,
       comment: comm.content,
-      date: comm.createdAt.split('T')[0], // Get date part only
+      date: comm.createdAt.split('T')[0],
       createdAt: comm.createdAt,
       activityType: comm.type as ActivityType,
     }))
     .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
 
   const handleAddActivity = async (comment: string, date: string, activityType: ActivityType) => {
-    // Use the provided date instead of current timestamp
     const activityDate = new Date(date).toISOString()
 
     await addCommunication({
@@ -235,10 +247,9 @@ export default function ProspectDetailPage() {
       content: comment,
       direction: 'outbound',
       author: prospect.owner || 'Unknown',
-      createdAt: activityDate, // Pass the custom date
+      createdAt: activityDate,
     })
 
-    // Update last contact date
     await updateProspect({
       ...prospect,
       lastContactDate: activityDate,
@@ -246,7 +257,6 @@ export default function ProspectDetailPage() {
   }
 
   const handleEditActivity = async (id: string, comment: string, date: string, activityType: ActivityType) => {
-    // Delete and recreate with the new content and date
     const activityDate = new Date(date).toISOString()
 
     await deleteCommunication(id)
@@ -256,7 +266,7 @@ export default function ProspectDetailPage() {
       content: comment,
       direction: 'outbound',
       author: prospect.owner || 'Unknown',
-      createdAt: activityDate, // Pass the custom date
+      createdAt: activityDate,
     })
   }
 
@@ -266,8 +276,18 @@ export default function ProspectDetailPage() {
     }
   }
 
+  const handleUseSuggestionAsNextAction = () => {
+    setProspect(prev => prev ? { ...prev, nextAction: prev.nextActionSuggestion } : prev)
+  }
+
+  const handleDismissSuggestion = async () => {
+    const updated = { ...prospect, nextActionSuggestion: undefined }
+    setProspect(updated)
+    await updateProspect(updated)
+  }
+
   return (
-    <div className="p-8 max-w-5xl mx-auto">
+    <div className="p-8 max-w-7xl mx-auto">
       {/* Header */}
       <div className="flex items-center justify-between mb-8">
         <div className="flex items-center gap-4">
@@ -301,591 +321,636 @@ export default function ProspectDetailPage() {
         </div>
       </div>
 
-      {/* Main Content */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-        {/* Basic Information */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">Basic Information</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div>
-              <label className="text-sm font-medium block mb-2">Company Name</label>
-              <Input
-                value={prospect.company}
-                onChange={(e) => setProspect({ ...prospect, company: e.target.value })}
-              />
-            </div>
-            <div>
-              <label className="text-sm font-medium block mb-2">Country</label>
-              <Select
-                value={prospect.country || ""}
-                onValueChange={(value) => setProspect({ ...prospect, country: value })}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select country" />
-                </SelectTrigger>
-                <SelectContent>
-                  {countries.map((country) => (
-                    <SelectItem key={country.id} value={country.name}>
-                      <span className="flex items-center gap-2">
-                        {country.flagEmoji && <CountryFlag code={country.flagEmoji} className="w-4 h-3" />}
-                        {country.name}
-                      </span>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <label className="text-sm font-medium block mb-2">Website</label>
-              <Input
-                type="url"
-                value={prospect.website || ""}
-                onChange={(e) => setProspect({ ...prospect, website: e.target.value })}
-                placeholder="https://company.com"
-              />
-            </div>
-            <div>
-              <label className="text-sm font-medium block mb-2">Company LinkedIn</label>
-              <Input
-                type="url"
-                value={prospect.linkedinUrl || ""}
-                onChange={(e) => setProspect({ ...prospect, linkedinUrl: e.target.value })}
-                placeholder="https://linkedin.com/company/..."
-              />
-            </div>
-            <div>
-              <label className="text-sm font-medium block mb-2">Status</label>
-              <Select
-                value={prospect.status}
-                onValueChange={(value: ProspectStatus) => setProspect({ ...prospect, status: value })}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Not contacted yet">✉️ Not contacted yet</SelectItem>
-                  <SelectItem value="Hot">🔥 Hot</SelectItem>
-                  <SelectItem value="Warm">☀️ Warm</SelectItem>
-                  <SelectItem value="Cold">❄️ Cold</SelectItem>
-                  <SelectItem value="Lost">Lost</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <label className="text-sm font-medium block mb-2">Product Type</label>
-              <Select
-                value={prospect.productType || ""}
-                onValueChange={(value: ProductType) => setProspect({ ...prospect, productType: value })}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select product" />
-                </SelectTrigger>
-                <SelectContent>
-                  {products.map((p) => {
-                    const config = getProductConfig(p as any)
-                    return (
-                      <SelectItem key={p} value={p}>
-                        <div className="flex items-center gap-2">
-                          <Badge
-                            style={{ backgroundColor: config.bgColor, color: config.textColor }}
-                            className="text-xs px-2 py-0.5"
-                          >
-                            {p}
-                          </Badge>
-                        </div>
-                      </SelectItem>
-                    )
-                  })}
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <label className="text-sm font-medium block mb-2">Deal Value</label>
-              <Input
-                type="text"
-                value={prospect.dealValue || ""}
-                onChange={(e) => setProspect({ ...prospect, dealValue: e.target.value || undefined })}
-                placeholder="e.g., 385€ monthly + 1,500€ one time"
-              />
-            </div>
-            <div>
-              <label className="text-sm font-medium block mb-2">Prospect Type</label>
-              <Select
-                value={prospect.prospectType || ""}
-                onValueChange={(value: ProspectType) => setProspect({ ...prospect, prospectType: value })}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select type" />
-                </SelectTrigger>
-                <SelectContent>
-                  {prospectTypes.map((t) => (
-                    <SelectItem key={t} value={t}>
-                      {t}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </CardContent>
-        </Card>
+      {/* Two-column layout: left = scrollable content, right = sticky sidebar */}
+      <div className="flex gap-6 items-start">
 
-        {/* Main Contact Info */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">Main Contact Info</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {contacts.length === 0 ? (
-              <p className="text-sm text-muted-foreground text-center py-8">
-                No contacts added yet. Add contacts below to see main contact information here.
-              </p>
-            ) : (
-              <div className="space-y-4">
-                {(() => {
-                  const primaryContact = contacts.find(c => c.isPrimary) || contacts[0]
-                  return (
-                    <>
-                      <div>
-                        <label className="text-sm font-medium block mb-2">Name</label>
-                        <div className="text-base font-medium">{primaryContact.name}</div>
-                      </div>
-                      {primaryContact.position && (
-                        <div>
-                          <label className="text-sm font-medium block mb-2">Position</label>
-                          <div className="text-base">{primaryContact.position}</div>
-                        </div>
-                      )}
-                      {primaryContact.email && (
-                        <div>
-                          <label className="text-sm font-medium block mb-2">Email</label>
-                          <a
-                            href={`mailto:${primaryContact.email}`}
-                            className="text-base text-blue-600 hover:underline"
-                          >
-                            {primaryContact.email}
-                          </a>
-                        </div>
-                      )}
-                      {primaryContact.telephone && (
-                        <div>
-                          <label className="text-sm font-medium block mb-2">Phone</label>
-                          <a
-                            href={`tel:${primaryContact.telephone}`}
-                            className="text-base text-blue-600 hover:underline"
-                          >
-                            {primaryContact.telephone}
-                          </a>
-                        </div>
-                      )}
-                      {primaryContact.linkedinUrl && (
-                        <div>
-                          <label className="text-sm font-medium block mb-2">LinkedIn</label>
-                          <a
-                            href={primaryContact.linkedinUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-base text-blue-600 hover:underline break-all"
-                          >
-                            View Profile
-                          </a>
-                        </div>
-                      )}
-                      {primaryContact.isPrimary && (
-                        <div className="pt-2 border-t">
-                          <Badge variant="default" className="bg-blue-600">
-                            Primary Contact
-                          </Badge>
-                        </div>
-                      )}
-                    </>
-                  )
-                })()}
-              </div>
-            )}
-            <div className="space-y-4 mt-4 pt-4 border-t">
-              <div>
-                <label className="text-sm font-medium block mb-2">Owner</label>
-                <Select
-                  value={prospect.owner || ""}
-                  onValueChange={(value: string) => setProspect({ ...prospect, owner: value })}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select owner" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {teamMembers.map((member) => (
-                      <SelectItem key={member} value={member}>
-                        {member}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <label className="text-sm font-medium block mb-2">Custom Label</label>
-                <Input
-                  type="text"
-                  value={prospect.customLabel || ""}
-                  onChange={(e) => setProspect({ ...prospect, customLabel: e.target.value || undefined })}
-                  placeholder="e.g., Athens trip March 2026"
-                />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+        {/* LEFT COLUMN */}
+        <div className="flex-1 min-w-0 space-y-6">
 
-      {/* Intelligence Feed */}
-      <Card className="mb-6">
-        <CardHeader>
-          <CardTitle className="text-lg flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Lightbulb className="h-5 w-5" />
-              Intelligence
-            </div>
-            <div className="flex items-center gap-2">
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={handleFetchNews}
-                disabled={isFetchingNews}
-                className="bg-blue-50 hover:bg-blue-100 text-blue-600 border-blue-200"
-              >
-                {isFetchingNews ? (
-                  <>
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    Fetching...
-                  </>
+          {/* Basic Info + Main Contact */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Basic Information */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg">Basic Information</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div>
+                  <label className="text-sm font-medium block mb-2">Company Name</label>
+                  <Input
+                    value={prospect.company}
+                    onChange={(e) => setProspect({ ...prospect, company: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <label className="text-sm font-medium block mb-2">Country</label>
+                  <Select
+                    value={prospect.country || ""}
+                    onValueChange={(value) => setProspect({ ...prospect, country: value })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select country" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {countries.map((country) => (
+                        <SelectItem key={country.id} value={country.name}>
+                          <span className="flex items-center gap-2">
+                            {country.flagEmoji && <CountryFlag code={country.flagEmoji} className="w-4 h-3" />}
+                            {country.name}
+                          </span>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <label className="text-sm font-medium block mb-2">Website</label>
+                  <Input
+                    type="url"
+                    value={prospect.website || ""}
+                    onChange={(e) => setProspect({ ...prospect, website: e.target.value })}
+                    placeholder="https://company.com"
+                  />
+                </div>
+                <div>
+                  <label className="text-sm font-medium block mb-2">Company LinkedIn</label>
+                  <Input
+                    type="url"
+                    value={prospect.linkedinUrl || ""}
+                    onChange={(e) => setProspect({ ...prospect, linkedinUrl: e.target.value })}
+                    placeholder="https://linkedin.com/company/..."
+                  />
+                </div>
+                <div>
+                  <label className="text-sm font-medium block mb-2">Status</label>
+                  <Select
+                    value={prospect.status}
+                    onValueChange={(value: ProspectStatus) => setProspect({ ...prospect, status: value })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Not contacted yet">✉️ Not contacted yet</SelectItem>
+                      <SelectItem value="Hot">🔥 Hot</SelectItem>
+                      <SelectItem value="Warm">☀️ Warm</SelectItem>
+                      <SelectItem value="Cold">❄️ Cold</SelectItem>
+                      <SelectItem value="Lost">Lost</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <label className="text-sm font-medium block mb-2">Product Type</label>
+                  <Select
+                    value={prospect.productType || ""}
+                    onValueChange={(value: ProductType) => setProspect({ ...prospect, productType: value })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select product" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {products.map((p) => {
+                        const config = getProductConfig(p as any)
+                        return (
+                          <SelectItem key={p} value={p}>
+                            <div className="flex items-center gap-2">
+                              <Badge
+                                style={{ backgroundColor: config.bgColor, color: config.textColor }}
+                                className="text-xs px-2 py-0.5"
+                              >
+                                {p}
+                              </Badge>
+                            </div>
+                          </SelectItem>
+                        )
+                      })}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <label className="text-sm font-medium block mb-2">Deal Value</label>
+                  <Input
+                    type="text"
+                    value={prospect.dealValue || ""}
+                    onChange={(e) => setProspect({ ...prospect, dealValue: e.target.value || undefined })}
+                    placeholder="e.g., 385€ monthly + 1,500€ one time"
+                  />
+                </div>
+                <div>
+                  <label className="text-sm font-medium block mb-2">Prospect Type</label>
+                  <Select
+                    value={prospect.prospectType || ""}
+                    onValueChange={(value: ProspectType) => setProspect({ ...prospect, prospectType: value })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select type" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {prospectTypes.map((t) => (
+                        <SelectItem key={t} value={t}>
+                          {t}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Main Contact Info */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg">Main Contact Info</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {contacts.length === 0 ? (
+                  <p className="text-sm text-muted-foreground text-center py-8">
+                    No contacts added yet. Add contacts below to see main contact information here.
+                  </p>
                 ) : (
-                  <>
-                    <Lightbulb className="h-4 w-4 mr-2" />
-                    Fetch Intelligence
-                  </>
-                )}
-              </Button>
-              <Link href="/acquisition/intelligence">
-                <Button size="sm" variant="outline">
-                  View All
-                </Button>
-              </Link>
-            </div>
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          {intelligenceLoading ? (
-            <div className="flex justify-center py-4">
-              <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-            </div>
-          ) : intelligenceItems.filter(i => !i.dismissed).length === 0 ? (
-            <p className="text-sm text-muted-foreground text-center py-4">
-              No intelligence items for this prospect yet. Click "Fetch News" to gather intelligence.
-            </p>
-          ) : (
-            <div className="space-y-4">
-              {intelligenceItems.filter(i => !i.dismissed).slice(0, intelligenceToShow).map((item) => (
-                <IntelligenceCard
-                  key={item.id}
-                  item={item}
-                  prospect={prospect}
-                  onDismiss={dismissItem}
-                  onUseInFollowUp={handleUseInFollowUp}
-                />
-              ))}
-              {intelligenceItems.filter(i => !i.dismissed).length > intelligenceToShow && (
-                <div className="text-center pt-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setIntelligenceToShow(prev => prev + 5)}
-                  >
-                    Show more ({intelligenceItems.filter(i => !i.dismissed).length - intelligenceToShow} remaining)
-                  </Button>
-                </div>
-              )}
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Contacts + Next Action side by side */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-        <ProspectContactsManager prospectId={prospectId} />
-        <NextActionField
-          nextAction={prospect.nextAction || ""}
-          nextActionDate={prospect.nextActionDate || ""}
-          onNextActionChange={(value) => setProspect(prev => prev ? { ...prev, nextAction: value || undefined } : prev)}
-          onNextActionDateChange={(value) => setProspect(prev => prev ? { ...prev, nextActionDate: value || undefined } : prev)}
-          onComplete={async () => {
-            // Auto-save when Complete is clicked
-            const clearedProspect: Prospect = {
-              ...prospect,
-              nextAction: undefined,
-              nextActionDate: undefined,
-            }
-            setProspect(clearedProspect)
-            await updateProspect(clearedProspect)
-          }}
-        />
-      </div>
-
-      {/* Activity Log */}
-      <div className="mb-6">
-        <ActivityLog
-          activities={activities}
-          onAdd={handleAddActivity}
-          onEdit={handleEditActivity}
-          onDelete={handleDeleteActivity}
-        />
-      </div>
-
-      {/* Previous Communication (Emails) */}
-      <Card className="mb-6">
-        <CardHeader>
-          <CardTitle className="text-lg flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Mail className="h-5 w-5" />
-              Previous Communication
-            </div>
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={handleFetchEmails}
-              disabled={isFetchingEmails}
-              className="bg-green-50 hover:bg-green-100 text-green-600 border-green-200"
-            >
-              {isFetchingEmails ? (
-                <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Fetching...
-                </>
-              ) : (
-                <>
-                  <Mail className="h-4 w-4 mr-2" />
-                  Fetch Emails
-                </>
-              )}
-            </Button>
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          {(() => {
-            const allEmailCommunications = communications
-              .filter(c => c.type === 'email')
-              .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-
-            const emailCommunications = allEmailCommunications.filter(email => {
-              if (emailFilter === 'all') return true
-              if (emailFilter === 'sent') return email.direction === 'outbound'
-              if (emailFilter === 'received') return email.direction === 'inbound'
-              return true
-            })
-
-            const sentCount = allEmailCommunications.filter(e => e.direction === 'outbound').length
-            const receivedCount = allEmailCommunications.filter(e => e.direction === 'inbound').length
-
-            if (allEmailCommunications.length === 0) {
-              return (
-                <p className="text-sm text-muted-foreground text-center py-4">
-                  No emails synced yet. Click "Fetch Emails" to import emails from your configured email accounts.
-                </p>
-              )
-            }
-
-            const visibleEmails = emailCommunications.slice(0, emailsToShow)
-            const hasMore = emailCommunications.length > emailsToShow
-
-            return (
-              <div className="space-y-3">
-                {/* Filter buttons */}
-                <div className="flex items-center gap-2 pb-2 border-b">
-                  <Button
-                    size="sm"
-                    variant={emailFilter === 'all' ? 'default' : 'outline'}
-                    onClick={() => setEmailFilter('all')}
-                    className="h-8"
-                  >
-                    All ({allEmailCommunications.length})
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant={emailFilter === 'sent' ? 'default' : 'outline'}
-                    onClick={() => setEmailFilter('sent')}
-                    className="h-8"
-                  >
-                    Sent ({sentCount})
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant={emailFilter === 'received' ? 'default' : 'outline'}
-                    onClick={() => setEmailFilter('received')}
-                    className="h-8"
-                  >
-                    Received ({receivedCount})
-                  </Button>
-                </div>
-                {visibleEmails.map((email) => {
-                  const isExpanded = expandedEmails.has(email.id)
-                  return (
-                    <div key={email.id} className="border rounded-lg p-4 space-y-2">
-                      <div className="flex items-start justify-between">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2 mb-1">
-                            <Badge variant={email.direction === 'inbound' ? 'default' : 'secondary'}>
-                              {email.direction === 'inbound' ? '📥 Received' : '📤 Sent'}
-                            </Badge>
-                            <span className="text-xs text-muted-foreground">
-                              {new Date(email.createdAt).toLocaleDateString()} {new Date(email.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                            </span>
+                  <div className="space-y-4">
+                    {(() => {
+                      const primaryContact = contacts.find(c => c.isPrimary) || contacts[0]
+                      return (
+                        <>
+                          <div>
+                            <label className="text-sm font-medium block mb-2">Name</label>
+                            <div className="text-base font-medium">{primaryContact.name}</div>
                           </div>
-                          <h4 className="font-medium text-sm">{email.subject || '(No Subject)'}</h4>
-                          {email.aiSummary && (
-                            <div className="bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-lg p-3 mt-2">
-                              <div className="flex items-start gap-2">
-                                <Lightbulb className="h-4 w-4 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" />
-                                <p className="text-sm text-blue-800 dark:text-blue-200">{email.aiSummary}</p>
-                              </div>
+                          {primaryContact.position && (
+                            <div>
+                              <label className="text-sm font-medium block mb-2">Position</label>
+                              <div className="text-base">{primaryContact.position}</div>
                             </div>
                           )}
-                          {email.content && (
-                            <p className={`text-sm text-muted-foreground mt-2 whitespace-pre-wrap ${!isExpanded ? 'line-clamp-3' : ''}`}>
-                              {email.content}
-                            </p>
+                          {primaryContact.email && (
+                            <div>
+                              <label className="text-sm font-medium block mb-2">Email</label>
+                              <a
+                                href={`mailto:${primaryContact.email}`}
+                                className="text-base text-blue-600 hover:underline"
+                              >
+                                {primaryContact.email}
+                              </a>
+                            </div>
                           )}
-                        </div>
-                      </div>
-                      <div className="flex items-center justify-between text-xs text-muted-foreground pt-2 border-t">
-                        <span>From: {email.author}</span>
-                        {email.content && email.content.length > 200 && (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => {
-                              setExpandedEmails(prev => {
-                                const next = new Set(prev)
-                                if (next.has(email.id)) {
-                                  next.delete(email.id)
-                                } else {
-                                  next.add(email.id)
-                                }
-                                return next
-                              })
-                            }}
-                            className="h-auto py-1 text-blue-600 hover:text-blue-700"
-                          >
-                            {isExpanded ? 'Show less' : 'View full message'}
-                          </Button>
-                        )}
-                      </div>
-                    </div>
-                  )
-                })}
-                {hasMore && (
-                  <div className="text-center pt-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setEmailsToShow(prev => prev + 10)}
-                    >
-                      Load More ({emailCommunications.length - emailsToShow} remaining)
-                    </Button>
+                          {primaryContact.telephone && (
+                            <div>
+                              <label className="text-sm font-medium block mb-2">Phone</label>
+                              <a
+                                href={`tel:${primaryContact.telephone}`}
+                                className="text-base text-blue-600 hover:underline"
+                              >
+                                {primaryContact.telephone}
+                              </a>
+                            </div>
+                          )}
+                          {primaryContact.linkedinUrl && (
+                            <div>
+                              <label className="text-sm font-medium block mb-2">LinkedIn</label>
+                              <a
+                                href={primaryContact.linkedinUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-base text-blue-600 hover:underline break-all"
+                              >
+                                View Profile
+                              </a>
+                            </div>
+                          )}
+                          {primaryContact.isPrimary && (
+                            <div className="pt-2 border-t">
+                              <Badge variant="default" className="bg-blue-600">
+                                Primary Contact
+                              </Badge>
+                            </div>
+                          )}
+                        </>
+                      )
+                    })()}
                   </div>
                 )}
-              </div>
-            )
-          })()}
-        </CardContent>
-      </Card>
+                <div className="space-y-4 mt-4 pt-4 border-t">
+                  <div>
+                    <label className="text-sm font-medium block mb-2">Owner</label>
+                    <Select
+                      value={prospect.owner || ""}
+                      onValueChange={(value: string) => setProspect({ ...prospect, owner: value })}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select owner" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {teamMembers.map((member) => (
+                          <SelectItem key={member} value={member}>
+                            {member}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium block mb-2">Custom Label</label>
+                    <Input
+                      type="text"
+                      value={prospect.customLabel || ""}
+                      onChange={(e) => setProspect({ ...prospect, customLabel: e.target.value || undefined })}
+                      placeholder="e.g., Athens trip March 2026"
+                    />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
 
-      {/* Email Drafts */}
-      <Card className="mb-6">
-        <CardHeader>
-          <CardTitle className="text-lg flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Mail className="h-5 w-5" />
-              Email Drafts
-            </div>
-            <Button size="sm" onClick={() => setShowEmailComposer(true)}>
-              <Mail className="h-4 w-4 mr-2" />
-              Compose
-            </Button>
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          {draftsLoading ? (
-            <div className="flex justify-center py-4">
-              <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-            </div>
-          ) : drafts.length === 0 ? (
-            <p className="text-sm text-muted-foreground text-center py-4">
-              No email drafts yet. Click "Compose" to generate an AI email.
-            </p>
-          ) : (
-            <div className="space-y-3">
-              {drafts.map((draft) => (
-                <div key={draft.id} className="border rounded-lg p-4 space-y-2">
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1">
-                      <h4 className="font-medium text-sm">{draft.subject}</h4>
-                      <div className="flex items-center gap-2 mt-1">
-                        {draft.tone && (
-                          <span className="text-xs bg-secondary px-2 py-0.5 rounded">
-                            {draft.tone}
-                          </span>
+          {/* Contacts */}
+          <ProspectContactsManager prospectId={prospectId} />
+
+          {/* Intelligence Feed */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Lightbulb className="h-5 w-5" />
+                  Intelligence
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={handleFetchNews}
+                    disabled={isFetchingNews}
+                    className="bg-blue-50 hover:bg-blue-100 text-blue-600 border-blue-200"
+                  >
+                    {isFetchingNews ? (
+                      <>
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        Fetching...
+                      </>
+                    ) : (
+                      <>
+                        <Lightbulb className="h-4 w-4 mr-2" />
+                        Fetch Intelligence
+                      </>
+                    )}
+                  </Button>
+                  <Link href="/acquisition/intelligence">
+                    <Button size="sm" variant="outline">
+                      View All
+                    </Button>
+                  </Link>
+                </div>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {intelligenceLoading ? (
+                <div className="flex justify-center py-4">
+                  <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                </div>
+              ) : intelligenceItems.filter(i => !i.dismissed).length === 0 ? (
+                <p className="text-sm text-muted-foreground text-center py-4">
+                  No intelligence items for this prospect yet. Click "Fetch News" to gather intelligence.
+                </p>
+              ) : (
+                <div className="space-y-4">
+                  {intelligenceItems.filter(i => !i.dismissed).slice(0, intelligenceToShow).map((item) => (
+                    <IntelligenceCard
+                      key={item.id}
+                      item={item}
+                      prospect={prospect}
+                      onDismiss={dismissItem}
+                      onUseInFollowUp={handleUseInFollowUp}
+                    />
+                  ))}
+                  {intelligenceItems.filter(i => !i.dismissed).length > intelligenceToShow && (
+                    <div className="text-center pt-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setIntelligenceToShow(prev => prev + 5)}
+                      >
+                        Show more ({intelligenceItems.filter(i => !i.dismissed).length - intelligenceToShow} remaining)
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Previous Communication (Emails) */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Mail className="h-5 w-5" />
+                  Previous Communication
+                </div>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={handleFetchEmails}
+                  disabled={isFetchingEmails}
+                  className="bg-green-50 hover:bg-green-100 text-green-600 border-green-200"
+                >
+                  {isFetchingEmails ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Fetching...
+                    </>
+                  ) : (
+                    <>
+                      <Mail className="h-4 w-4 mr-2" />
+                      Fetch Emails
+                    </>
+                  )}
+                </Button>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {(() => {
+                const allEmailCommunications = communications
+                  .filter(c => c.type === 'email')
+                  .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+
+                const emailCommunications = allEmailCommunications.filter(email => {
+                  if (emailFilter === 'all') return true
+                  if (emailFilter === 'sent') return email.direction === 'outbound'
+                  if (emailFilter === 'received') return email.direction === 'inbound'
+                  return true
+                })
+
+                const sentCount = allEmailCommunications.filter(e => e.direction === 'outbound').length
+                const receivedCount = allEmailCommunications.filter(e => e.direction === 'inbound').length
+
+                if (allEmailCommunications.length === 0) {
+                  return (
+                    <p className="text-sm text-muted-foreground text-center py-4">
+                      No emails synced yet. Click "Fetch Emails" to import emails from your configured email accounts.
+                    </p>
+                  )
+                }
+
+                const visibleEmails = emailCommunications.slice(0, emailsToShow)
+                const hasMore = emailCommunications.length > emailsToShow
+
+                return (
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2 pb-2 border-b">
+                      <Button
+                        size="sm"
+                        variant={emailFilter === 'all' ? 'default' : 'outline'}
+                        onClick={() => setEmailFilter('all')}
+                        className="h-8"
+                      >
+                        All ({allEmailCommunications.length})
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant={emailFilter === 'sent' ? 'default' : 'outline'}
+                        onClick={() => setEmailFilter('sent')}
+                        className="h-8"
+                      >
+                        Sent ({sentCount})
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant={emailFilter === 'received' ? 'default' : 'outline'}
+                        onClick={() => setEmailFilter('received')}
+                        className="h-8"
+                      >
+                        Received ({receivedCount})
+                      </Button>
+                    </div>
+                    {visibleEmails.map((email) => {
+                      const isExpanded = expandedEmails.has(email.id)
+                      return (
+                        <div key={email.id} className="border rounded-lg p-4 space-y-2">
+                          <div className="flex items-start justify-between">
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2 mb-1">
+                                <Badge variant={email.direction === 'inbound' ? 'default' : 'secondary'}>
+                                  {email.direction === 'inbound' ? '📥 Received' : '📤 Sent'}
+                                </Badge>
+                                <span className="text-xs text-muted-foreground">
+                                  {new Date(email.createdAt).toLocaleDateString()} {new Date(email.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                </span>
+                              </div>
+                              <h4 className="font-medium text-sm">{email.subject || '(No Subject)'}</h4>
+                              {email.aiSummary && (
+                                <div className="bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-lg p-3 mt-2">
+                                  <div className="flex items-start gap-2">
+                                    <Lightbulb className="h-4 w-4 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" />
+                                    <p className="text-sm text-blue-800 dark:text-blue-200">{email.aiSummary}</p>
+                                  </div>
+                                </div>
+                              )}
+                              {email.content && (
+                                <p className={`text-sm text-muted-foreground mt-2 whitespace-pre-wrap ${!isExpanded ? 'line-clamp-3' : ''}`}>
+                                  {email.content}
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                          <div className="flex items-center justify-between text-xs text-muted-foreground pt-2 border-t">
+                            <span>From: {email.author}</span>
+                            {email.content && email.content.length > 200 && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => {
+                                  setExpandedEmails(prev => {
+                                    const next = new Set(prev)
+                                    if (next.has(email.id)) {
+                                      next.delete(email.id)
+                                    } else {
+                                      next.add(email.id)
+                                    }
+                                    return next
+                                  })
+                                }}
+                                className="h-auto py-1 text-blue-600 hover:text-blue-700"
+                              >
+                                {isExpanded ? 'Show less' : 'View full message'}
+                              </Button>
+                            )}
+                          </div>
+                        </div>
+                      )
+                    })}
+                    {hasMore && (
+                      <div className="text-center pt-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setEmailsToShow(prev => prev + 10)}
+                        >
+                          Load More ({emailCommunications.length - emailsToShow} remaining)
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                )
+              })()}
+            </CardContent>
+          </Card>
+
+          {/* Email Drafts */}
+          <Card className="mb-6">
+            <CardHeader>
+              <CardTitle className="text-lg flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Mail className="h-5 w-5" />
+                  Email Drafts
+                </div>
+                <Button size="sm" onClick={() => setShowEmailComposer(true)}>
+                  <Mail className="h-4 w-4 mr-2" />
+                  Compose
+                </Button>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {draftsLoading ? (
+                <div className="flex justify-center py-4">
+                  <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                </div>
+              ) : drafts.length === 0 ? (
+                <p className="text-sm text-muted-foreground text-center py-4">
+                  No email drafts yet. Click "Compose" to generate an AI email.
+                </p>
+              ) : (
+                <div className="space-y-3">
+                  {drafts.map((draft) => (
+                    <div key={draft.id} className="border rounded-lg p-4 space-y-2">
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1">
+                          <h4 className="font-medium text-sm">{draft.subject}</h4>
+                          <div className="flex items-center gap-2 mt-1">
+                            {draft.tone && (
+                              <span className="text-xs bg-secondary px-2 py-0.5 rounded">
+                                {draft.tone}
+                              </span>
+                            )}
+                            {draft.goal && (
+                              <span className="text-xs bg-secondary px-2 py-0.5 rounded">
+                                {draft.goal}
+                              </span>
+                            )}
+                            {draft.language && (
+                              <span className="text-xs bg-secondary px-2 py-0.5 rounded">
+                                {draft.language}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => deleteDraft(draft.id)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                      <p className="text-sm text-muted-foreground line-clamp-2">
+                        {draft.body}
+                      </p>
+                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                        <span>Created {new Date(draft.createdAt).toLocaleDateString()}</span>
+                        {draft.sentAt && (
+                          <>
+                            <span>•</span>
+                            <span className="text-green-600">Sent</span>
+                          </>
                         )}
-                        {draft.goal && (
-                          <span className="text-xs bg-secondary px-2 py-0.5 rounded">
-                            {draft.goal}
-                          </span>
+                        {draft.openedAt && (
+                          <>
+                            <span>•</span>
+                            <span className="text-blue-600">Opened</span>
+                          </>
                         )}
-                        {draft.language && (
-                          <span className="text-xs bg-secondary px-2 py-0.5 rounded">
-                            {draft.language}
-                          </span>
+                        {draft.repliedAt && (
+                          <>
+                            <span>•</span>
+                            <span className="text-purple-600">Replied</span>
+                          </>
                         )}
                       </div>
                     </div>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => deleteDraft(draft.id)}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-                  <p className="text-sm text-muted-foreground line-clamp-2">
-                    {draft.body}
-                  </p>
-                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                    <span>Created {new Date(draft.createdAt).toLocaleDateString()}</span>
-                    {draft.sentAt && (
-                      <>
-                        <span>•</span>
-                        <span className="text-green-600">Sent</span>
-                      </>
-                    )}
-                    {draft.openedAt && (
-                      <>
-                        <span>•</span>
-                        <span className="text-blue-600">Opened</span>
-                      </>
-                    )}
-                    {draft.repliedAt && (
-                      <>
-                        <span>•</span>
-                        <span className="text-purple-600">Replied</span>
-                      </>
-                    )}
-                  </div>
+                  ))}
                 </div>
-              ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
+              )}
+            </CardContent>
+          </Card>
 
-      {/* Email Composer Modal */}
+        </div>{/* end LEFT COLUMN */}
+
+        {/* RIGHT COLUMN — sticky sidebar */}
+        <div className="w-[380px] flex-shrink-0 sticky top-8 space-y-4 max-h-[calc(100vh-8rem)] overflow-y-auto pb-4">
+
+          {/* AI Next Action Suggestion */}
+          {prospect.nextActionSuggestion && (
+            <Card className="border-amber-200 bg-amber-50 dark:bg-amber-950/30">
+              <CardHeader className="pb-2 pt-4 px-4">
+                <CardTitle className="text-sm flex items-center justify-between text-amber-700 dark:text-amber-400">
+                  <div className="flex items-center gap-1.5">
+                    <Lightbulb className="h-4 w-4" />
+                    AI Suggestion
+                  </div>
+                  <button
+                    onClick={handleDismissSuggestion}
+                    className="text-amber-500 hover:text-amber-700"
+                    title="Dismiss suggestion"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="px-4 pb-4 space-y-3">
+                <p className="text-sm text-amber-900 dark:text-amber-200">
+                  {prospect.nextActionSuggestion}
+                </p>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="border-amber-300 text-amber-700 hover:bg-amber-100 dark:hover:bg-amber-900/50 w-full"
+                  onClick={handleUseSuggestionAsNextAction}
+                >
+                  Use as Next Action
+                </Button>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Next Action */}
+          <NextActionField
+            nextAction={prospect.nextAction || ""}
+            nextActionDate={prospect.nextActionDate || ""}
+            onNextActionChange={(value) => setProspect(prev => prev ? { ...prev, nextAction: value || undefined } : prev)}
+            onNextActionDateChange={(value) => setProspect(prev => prev ? { ...prev, nextActionDate: value || undefined } : prev)}
+            onComplete={async () => {
+              const clearedProspect: Prospect = {
+                ...prospect,
+                nextAction: undefined,
+                nextActionDate: undefined,
+              }
+              setProspect(clearedProspect)
+              await updateProspect(clearedProspect)
+            }}
+          />
+
+          {/* Activity Log */}
+          <ActivityLog
+            activities={activities}
+            onAdd={handleAddActivity}
+            onEdit={handleEditActivity}
+            onDelete={handleDeleteActivity}
+          />
+
+        </div>{/* end RIGHT COLUMN */}
+
+      </div>{/* end two-column layout */}
+
+      {/* Modals */}
       <EmailComposerModal
         open={showEmailComposer}
         onOpenChange={setShowEmailComposer}
@@ -901,7 +966,6 @@ export default function ProspectDetailPage() {
         intelligenceItems={intelligenceItems}
       />
 
-      {/* Archive Prospect Dialog */}
       <ArchiveProspectDialog
         open={showArchiveDialog}
         onOpenChange={setShowArchiveDialog}
@@ -909,7 +973,6 @@ export default function ProspectDetailPage() {
         onConfirm={handleArchive}
       />
 
-      {/* Follow-up Email Dialog */}
       {selectedIntelligence && (
         <FollowupEmailDialog
           open={followupDialogOpen}
